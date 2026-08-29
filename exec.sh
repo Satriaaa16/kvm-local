@@ -1,0 +1,12 @@
+virt-install \
+  --virt-type=kvm \
+  --name vm-jenkins-2 \
+  --ram 1024 \
+  --vcpus 1 \
+  --disk path=/var/lib/libvirt/images/jenkins2.qcow2,device=disk,bus=virtio \
+  --graphics vnc,listen=0.0.0.0 \
+  --noautoconsole \
+  --os-variant ubuntu24.04 \
+  --network network=default \
+  --check path_in_use=off \
+  --import

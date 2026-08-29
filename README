@@ -1,0 +1,11 @@
+setup kalo nanti udah install image ova bisa
+https://www.obriain.com/primers/ova2kvm.php
+
+
+supaya biar run tanpa qemu:///system
+echo 'export LIBVIRT_DEFAULT_URI=qemu:///system' >> ~/.bashrc
+source ~/.bashrc
+
+
+
+
