@@ -43,6 +43,13 @@ jobs:
           ls
           cd ../
           pwd
-          export image=noble-server-cloudimg-amd64
-          ./format-img-ova-toqcow2.sh
+          tar -xvf image/$image.ova
+
+          cp image/*.qcow2 /var/lib/libvirt/images/
+
+          
+          
+ #         export image=noble-server-cloudimg-amd64
+ #       tar -xvf image/$image.ova > hasil.txt
+          
           
