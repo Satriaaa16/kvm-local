@@ -2,8 +2,10 @@ tar -xvf image/$image.ova
 
 cd image
 export image="*.vmdk"
+echo $image
 cd ../
-basename $image .vmdk
+export image=$(basename $image .vmdk)
+evho $image
 
 qemu-img convert -O qcow2 image/$image.vmdk image/$image.qcow2
 
