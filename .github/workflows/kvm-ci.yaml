@@ -32,6 +32,8 @@ jobs:
        run: |
           export image=noble-server-cloudimg-amd64.ova
           export image=$(wget https://cloud-images.ubuntu.com/noble/current/$image> /dev/null 2>&1)
-          mv $image image
+          mv $image image/
+          ls -lah image/
           
           ./format-img-ova-toqcow2.sh
+          
