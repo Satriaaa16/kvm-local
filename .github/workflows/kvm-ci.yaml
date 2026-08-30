@@ -44,6 +44,5 @@ jobs:
           ls
           cd ../
           pwd
-          export image=ubuntu-noble-server-cloudimg-amd64
           ./format-img-ova-toqcow2.sh
           
