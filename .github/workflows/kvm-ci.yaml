@@ -45,12 +45,12 @@ jobs:
           pwd
           export image=noble-server-cloudimg-amd64
           tar -xvf image/$image.ova
-
+          echo "-----sudah di export cek hasil-----"
           cd image/
           ls
           pwd
 
-          echp "-----export udah selesai ---------"
+          echo "-----image dah muncul ---------"
           cd ../
 
           qemu-img convert -O qcow2 image/*.vmdk image/$image.qcow2
