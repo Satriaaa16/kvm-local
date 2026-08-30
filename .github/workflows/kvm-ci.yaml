@@ -1,4 +1,3 @@
-#
 name: uat-check-kvm
 
 on:
@@ -31,6 +30,6 @@ jobs:
 
      - name: test format disk
        run: |
-          export image=$(wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.ova > /dev/null 2>&1)
-          echo $image
-
+          export image=noble-server-cloudimg-amd64.ova
+          export image=$(wget https://cloud-images.ubuntu.com/noble/current/$image> /dev/null 2>&1)
+          
