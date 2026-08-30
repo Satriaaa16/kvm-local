@@ -43,5 +43,6 @@ jobs:
           ls
           cd ../
           pwd
+          export image=noble-server-cloudimg-amd64
           ./format-img-ova-toqcow2.sh
           
