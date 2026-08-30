@@ -6,6 +6,16 @@ supaya biar run tanpa qemu:///system
 echo 'export LIBVIRT_DEFAULT_URI=qemu:///system' >> ~/.bashrc
 source ~/.bashrc
 
+biar gak sudo terus tambahin permisson pada
+sudo usermod -a -G libvirt,kvm $USER
+newgrp libvirt
+
+trus edit isi file pada path /etc/libvirt/libvirtd.conf
+unix_sock_group = "libvirt"
+unix_sock_rw_perms = "0770"
+
+lalu restart service 
+sudo systemctl restart libvirtd
 
 
 

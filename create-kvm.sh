@@ -1,7 +1,12 @@
-tar -xvf $vm.ova
-
-qemu-img convert -O qcow2 $vm.vmdk $vm.qcow2
-
-cp $vm.qcow2 /virt/kvm/images
-
-## https://www.obriain.com/primers/ova2kvm.php
+virt-install \
+  --virt-type=kvm \
+  --name vm-jenkins-1 \
+  --ram 1024 \
+  --vcpus 1 \
+  --disk path=/var/lib/libvirt/images/jenkins1.qcow2,device=disk,bus=virtio \
+  --graphics vnc,listen=0.0.0.0 \
+  --noautoconsole \
+  --os-variant ubuntu24.04 \
+  --network network=internet-net \
+  --check path_in_use=off \
+  --import
