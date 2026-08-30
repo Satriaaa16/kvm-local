@@ -17,7 +17,20 @@ jobs:
      - name: Checkout
        uses: actions/checkout@v2
 
+     - name: Install kvm
+       run: |
+           sudo apt update
+           sudo apt install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virtinst
+           
      - name: Setup kvm
        run: |
-           pwd
-           ls 
+            sudo systemctl enable --now libvirtd
+            sudo systemctl status libvirtd
+            sudo adduser $USER kvm
+            sudo adduser $USER libvirt
+
+     - name: test format disk
+       run: |
+          export image=$(wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.ova)
+          echo $image=
+
