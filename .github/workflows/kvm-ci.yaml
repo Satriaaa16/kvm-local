@@ -41,6 +41,8 @@ jobs:
           ls
           echo "------image sudah ada ------------"
           export image=noble-server-cloudimg-amd64
+          ls
           cd ../
+          pwd
           ./format-img-ova-toqcow2.sh
           
