@@ -31,15 +31,16 @@ jobs:
      - name: test format disk
        run: |
           export image=noble-server-cloudimg-amd64.ova
-          export image=$(wget https://cloud-images.ubuntu.com/noble/current/$image> /dev/null 2>&1)
-          echo "berhasil ambil image"
+          wget https://cloud-images.ubuntu.com/noble/current/$image> /dev/null 2>&1
+          echo "------berhasil ambil image--------"
           ls
           echo $image
           ls | grep image
-          cp -r $image image
+          mv $image image
           cd image
           ls
           cd ../
+          echo "------image sudah ada ------------"
           
           ./format-img-ova-toqcow2.sh
           
