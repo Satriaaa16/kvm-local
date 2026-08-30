@@ -40,9 +40,10 @@ jobs:
           cd image 
           ls
           echo "------image sudah ada ------------"
-          export image=ubuntu-noble-server-cloudimg-amd64
+          export image=noble-server-cloudimg-amd64
           ls
           cd ../
           pwd
+          export image=ubuntu-noble-server-cloudimg-amd64
           ./format-img-ova-toqcow2.sh
           
