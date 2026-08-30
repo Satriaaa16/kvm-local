@@ -1,14 +1,13 @@
 tar -xvf image/$image.ova
 
-cd image
-export image="*.vmdk"
-echo $image
-cd ../
-export image=$(basename $image .vmdk)
-evho $image
+vmdk-files=$(ls image/*vmdk | head -n 1)
 
-qemu-img convert -O qcow2 image/$image.vmdk image/$image.qcow2
+vmdk_file=$(ls image/*.vmdk | head -n 1)
 
-cp image/$image.qcow2 /var/lib/libvirt/images/
+image-qcow=$(baseline image/$image.ova ova)
+
+qemu-img convert -f vmdk -O qcow2 "image/$image.vmdk" "image/$image-qcow.qcow2"
+
+sudo cp "image/$image.qcow2" /var/lib/libvirt/images/
 
 ## https://www.obriain.com/primers/ova2kvm.php
