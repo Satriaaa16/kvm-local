@@ -37,10 +37,10 @@ jobs:
           echo $image
           ls | grep image
           mv $image image
-          cd image
+          cd image | grep -i $image
           ls
-          cd ../
           echo "------image sudah ada ------------"
-          
+          export image=noble-server-cloudimg-amd64
+          cd ../
           ./format-img-ova-toqcow2.sh
           
