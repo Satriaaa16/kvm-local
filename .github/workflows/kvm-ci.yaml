@@ -37,7 +37,7 @@ jobs:
           echo $image
           ls | grep image
           mv $image image
-          cd image | grep -i $image
+          cd image 
           ls
           echo "------image sudah ada ------------"
           export image=noble-server-cloudimg-amd64
