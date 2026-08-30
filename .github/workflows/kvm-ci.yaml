@@ -19,8 +19,8 @@ jobs:
 
      - name: Install kvm
        run: |
-           sudo apt update
-           sudo apt install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virtinst
+           sudo apt update > /dev/null 2>&1
+           sudo apt install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virtinst > /dev/null 2>&1
            
      - name: Setup kvm
        run: |
@@ -31,6 +31,6 @@ jobs:
 
      - name: test format disk
        run: |
-          export image=$(wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.ova)
-          echo $image=
+          export image=$(wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.ova > /dev/null 2>&1)
+          echo $image
 
