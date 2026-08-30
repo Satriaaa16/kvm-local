@@ -40,7 +40,6 @@ jobs:
           cd image 
           ls
           echo "------image sudah ada ------------"
-          export image="*.vmdk"
           ls
           cd ../
           pwd
