@@ -1,0 +1,23 @@
+#
+name: uat-check-kvm
+
+on:
+  push:
+    branches:
+    - side
+  pull_request:
+    branches:
+    - main
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+
+     - name: Checkout
+       uses: actions/checkout@v2
+
+     - name: Setup kvm
+       run: |
+           pwd
+           ls 
