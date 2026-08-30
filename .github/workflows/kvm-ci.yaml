@@ -40,7 +40,7 @@ jobs:
           cd image 
           ls
           echo "------image sudah ada ------------"
-          export image=noble-server-cloudimg-amd64
+          export image=ubuntu-noble-server-cloudimg-amd64
           ls
           cd ../
           pwd
