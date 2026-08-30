@@ -46,6 +46,10 @@ jobs:
           export image=noble-server-cloudimg-amd64
           tar -xvf image/$image.ova
 
+          cd image/
+          ls
+          cd ../
+
           qemu-img convert -O qcow2 image/*.vmdk image/$image.qcow2
 
           cp image/$image.qcow2 /var/lib/libvirt/images/
