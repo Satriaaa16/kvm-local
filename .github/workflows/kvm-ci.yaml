@@ -44,6 +44,5 @@ jobs:
           ls
           cd ../
           pwd
-          sed '
           ./format-img-ova-toqcow2.sh
           
