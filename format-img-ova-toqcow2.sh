@@ -2,7 +2,7 @@ tar -xvf image/$image.ova > disk-output.txt
 
 awk 'NR==2' disk-output.txt > vmdk.txt
 
-export vmdk=$(cat vmdk.txt)
+export vmdk=$(cat vmdk.txt | grep -i vmdk)
 
 
 qemu-img convert -O qcow2 image/$vmdk image/$image.qcow2
