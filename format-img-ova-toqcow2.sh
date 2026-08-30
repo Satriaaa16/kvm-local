@@ -1,6 +1,11 @@
-tar -xvf image/$image.ova
+tar -xvf image/$image.ova > disk-output.txt
 
-qemu-img convert -O qcow2 image/ubuntu-$image.vmdk image/$image.qcow2
+awk 'NR==2' disk-output.txt > vmdk.txt
+
+export vmdk=vmdk.txt
+
+
+qemu-img convert -O qcow2 image/ubuntu-$vmdk.vmdk image/$image.qcow2
 
 cp image/$image.qcow2 /var/lib/libvirt/images/
 
