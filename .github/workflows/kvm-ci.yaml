@@ -32,11 +32,14 @@ jobs:
        run: |
           export image=noble-server-cloudimg-amd64.ova
           export image=$(wget https://cloud-images.ubuntu.com/noble/current/$image> /dev/null 2>&1)
+          echo "berhasil ambil image"
           ls
           echo $image
           ls | grep image
-          mv $image image
           cp -r $image image
+          cd image
+          ls
+          cd ../
           
           ./format-img-ova-toqcow2.sh
           
