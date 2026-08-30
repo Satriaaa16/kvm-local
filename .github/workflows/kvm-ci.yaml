@@ -48,6 +48,9 @@ jobs:
 
           cd image/
           ls
+          pwd
+
+          echp "-----export udah selesai ---------"
           cd ../
 
           qemu-img convert -O qcow2 image/*.vmdk image/$image.qcow2
