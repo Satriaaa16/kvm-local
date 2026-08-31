@@ -32,8 +32,12 @@ jobs:
        run: |
           export image=noble-server-cloudimg-amd64.ova
           wget https://cloud-images.ubuntu.com/noble/current/$image> /dev/null 2>&1
-          echo "------berhasil ambil image--------"
+          echo "---------berhasil ambil image---------------"
           ls
+          mv $image image
+          cd image
+          ls -lah
+          echo "-------image berhasil move ke dir image-----"
 
           
           
