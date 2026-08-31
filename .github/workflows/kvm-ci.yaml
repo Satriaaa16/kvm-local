@@ -38,6 +38,12 @@ jobs:
           cd image
           ls -lah
           echo "-------image berhasil move ke dir image-----"
+          cd ../
+          ./format-img-ova-toqcow2.sh
+          cd image 
+          ls -lah
+          pwd
+          echo "--------berhasil di format------------------"
 
           
           
