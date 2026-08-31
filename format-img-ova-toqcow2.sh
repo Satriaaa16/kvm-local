@@ -1,4 +1,4 @@
-tar -xvf image/$image -C images/
+tar -xvf image/$image -C image/
 
 export image-out=$(basename "$image" .ova )
 
