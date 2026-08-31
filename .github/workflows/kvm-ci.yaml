@@ -28,34 +28,12 @@ jobs:
             sudo adduser $USER kvm
             sudo adduser $USER libvirt
 
-     - name: test format disk
+     - name: install image
        run: |
           export image=noble-server-cloudimg-amd64.ova
           wget https://cloud-images.ubuntu.com/noble/current/$image> /dev/null 2>&1
           echo "------berhasil ambil image--------"
           ls
-          echo $image
-          ls | grep image
-          mv $image image
-          cd image 
-          ls
-          echo "------image sudah ada ------------"
-          ls
-          cd ../
-          pwd
-          export image=noble-server-cloudimg-amd64
-          tar -xvf image/$image.ova
-          echo "-----sudah di export cek hasil-----"
-          cd image/
-          ls
-          pwd
-
-          echo "-----image dah muncul ---------"
-          cd ../
-
-          qemu-img convert -O qcow2 image/*.vmdk image/$image.qcow2
-
-          cp image/$image.qcow2 /var/lib/libvirt/images/
 
           
           
