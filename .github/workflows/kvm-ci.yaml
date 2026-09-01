@@ -39,8 +39,7 @@ jobs:
           ls -lah
           echo "-------image berhasil move ke dir image-----"
           cd ../
-          sudo -i
-          ./format-img-ova-toqcow2.sh
+          sudo ./format-img-ova-toqcow2.sh
           cd image 
           ls -lah
           pwd
