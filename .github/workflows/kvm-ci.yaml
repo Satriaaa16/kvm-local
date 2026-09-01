@@ -27,6 +27,15 @@ jobs:
             sudo systemctl status libvirtd
             sudo adduser $USER kvm
             sudo adduser $USER libvirt
+            echo 'export LIBVIRT_DEFAULT_URI=qemu:///system' >> ~/.bashrc
+            source ~/.bashrc
+            sudo usermod -a -G libvirt,kvm $USER
+            newgrp libvirt
+            sudo sed -i 's/^#\?\s*unix_sock_group = "libvirt"/unix_sock_group = "libvirt"/' /etc/libvirt/libvirtd.conf
+            sudo sed -i 's/^#\?\s*unix_sock_rw_perms = "0770"/unix_sock_rw_perms = "0770"/' /etc/libvirt/libvirtd.conf
+
+            sudo systemctl restart libvirtd
+            sudo systemctl status libvirtd
 
      - name: install image
        run: |
