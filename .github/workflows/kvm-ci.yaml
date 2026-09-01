@@ -93,7 +93,7 @@ jobs:
             sed -i s'/jenkins1.qcow2/*.qcow2/' create-kvm2.sh
 
             chmod +x create-kvm2.sh
-            ./create-kvm2.sh
+            sudo ./create-kvm2.sh
             sudo virsh list --all
 
            
