@@ -67,7 +67,7 @@ jobs:
            cd network
            chmod +x create-network.sh
            ./create-network.sh
-           virsh net-list --all 
+           sudo virsh net-list --all 
 
            
 
