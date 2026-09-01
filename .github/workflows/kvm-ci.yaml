@@ -93,7 +93,7 @@ jobs:
             export imagetarget=$(sudo ls /var/lib/libvirt/images/ | grep -i '\.qcow2$' | head -n 1)
             
             
-            sed -i s'/jenkins1.qcow2/*$imagetarget/' create-kvm2.sh
+            sed -i s'/jenkins1.qcow2/$imagetarget/' create-kvm2.sh
 
             chmod +x create-kvm2.sh
             sudo ./create-kvm2.sh
