@@ -73,25 +73,24 @@ jobs:
 
      - name: start sample kvm
        run: |
-            sudo ls -lah /var/lib/libvirt/images/
-            cat << 'EOF' > create-kvm2.sh
+            export imagetarget=$(sudo ls /var/lib/libvirt/images | grep -i '\.qcow2$' | head -n 1 | tr -d '\r\n')
+
+            cat << EOF > create-kvm2.sh
             virt-install \
             --connect qemu:///system \
             --virt-type=kvm \
             --name vm-jenkins-1 \
-            --ram 1024 \
-            --vcpus 1 \
-            --disk path=/var/lib/libvirt/images/jenkins1.qcow2,device=disk,bus=virtio \
+            --ram 2048 \
+            --vcpus 2 \
+            --disk path=/var/lib/libvirt/images/${imagetarget},format=qcow2,device=disk,bus=virtio \
             --graphics vnc,listen=0.0.0.0 \
             --noautoconsole \
             --os-variant ubuntu24.04 \
             --network network=internet-net \
-            --check path_in_use=off \
+            --check path_in_use=off,disk_size=off \
             --import
             EOF
-
-            export imagetarget=$(sudo ls /var/lib/libvirt/images/ | grep -i '\.qcow2$' | head -n 1)
-            
+                        
             
             sed -i s'/jenkins1.qcow2/$imagetarget/' create-kvm2.sh
 
