@@ -69,6 +69,7 @@ jobs:
            ./create-network.sh
            sudo virsh net-list --all 
            sudo virsh net-autostart internet-net 
+           sudo virsh net-start internet-net
            sudo virsh list --all
 
      - name: start sample kvm
