@@ -34,6 +34,14 @@ jobs:
             sudo sed -i 's/^#\?\s*unix_sock_group = "libvirt"/unix_sock_group = "libvirt"/' /etc/libvirt/libvirtd.conf
             sudo sed -i 's/^#\?\s*unix_sock_rw_perms = "0770"/unix_sock_rw_perms = "0770"/' /etc/libvirt/libvirtd.conf
 
+            # 2. MUST RESTART agar perubahan socket di-apply
+            sudo systemctl restart libvirtd
+
+            # 3. Tambahkan user ke grup
+            sudo usermod -aG libvirt,kvm $USER
+
+            # 4. Set Environment Variable langsung di level process (tanpa .bashrc)
+            export LIBVIRT_DEFAULT_URI="qemu:///system"
             sudo systemctl restart libvirtd
             sudo systemctl status libvirtd
 
@@ -59,7 +67,7 @@ jobs:
            cd network
            chmod +x create-network.sh
            ./create-network.sh
-           virsh --connect qemu:///system net-list --all 
+           virsh net-list --all 
 
            
 
