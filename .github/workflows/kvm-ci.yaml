@@ -47,8 +47,10 @@ jobs:
 
      - name: cek via virsh
        run: |
+           cd network
+           ./create-network.sh
            virsh net-list
-           virsh net-start default
+           virsh net-start internet-net
            
 
           
