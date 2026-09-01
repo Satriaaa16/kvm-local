@@ -45,6 +45,12 @@ jobs:
           pwd
           echo "--------berhasil di format------------------"
 
+     - name: cek via virsh
+       run: |
+           virsh net-list
+           virsh net-start default
+           
+
           
           
  #         export image=noble-server-cloudimg-amd64
