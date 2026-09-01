@@ -1,2 +1,2 @@
-sudo virsh net-define $network.xml
+sudo virsh net-define virtual.net.template.xml
 
