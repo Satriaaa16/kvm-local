@@ -59,7 +59,7 @@ jobs:
            cd network
            chmod +x create-network.sh
            ./create-network.sh
-           virsh net-list --all
+           virsh --connect qemu:///system net-list --all 
 
            
 
