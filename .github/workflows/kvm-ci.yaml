@@ -68,6 +68,13 @@ jobs:
            chmod +x create-network.sh
            ./create-network.sh
            sudo virsh net-list --all 
+           sudo virsh net-autostart internet-net 
+           sudo virsh list --all
+
+     - name: start sample kvm
+       run: |
+            sudo ls -lah /var/lib/libvirt/images/
+            sed -i s'jenkins1.qcow2/*.qcow2/' create-kvm.sh
 
            
 
