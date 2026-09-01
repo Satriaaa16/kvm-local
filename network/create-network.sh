@@ -1,2 +1,2 @@
-sudo virsh net-define virtual.net.template.xml
+sudo virsh net-define internet-net.xml
 
