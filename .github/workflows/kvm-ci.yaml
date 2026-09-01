@@ -88,6 +88,8 @@ jobs:
             --network network=internet-net \
             --check path_in_use=off \
             --import
+            EOF
+            
             sed -i s'/jenkins1.qcow2/*.qcow2/' create-kvm2.sh
             
             ./create-kvm.sh
