@@ -80,7 +80,7 @@ jobs:
             virt-install \
             --connect qemu:///system \
             --virt-type=kvm \
-            --name vm-jenkins-1 \
+            --name test-vm \
             --ram 2048 \
             --vcpus 2 \
             --disk path=/var/lib/libvirt/images/${imagetarget},format=qcow2,device=disk,bus=virtio \
@@ -99,6 +99,8 @@ jobs:
             sudo ./create-kvm2.sh
             sudo virsh list --all
 
+            timeout 3s sudo virsh console test-vm || true
+            exit 0
            
 
           
