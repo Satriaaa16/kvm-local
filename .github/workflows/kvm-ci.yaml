@@ -75,6 +75,7 @@ jobs:
      - name: setup user and password
        run: |
             image=noble-server-cloudimg-amd64
+            export LIBGUESTFS_DEBUG=1 LIBGUESTFS_TRACE=1
             virt-customize -a image/$image.qcow2 \
             --run-command 'useradd -m -s /bin/bash user-al || true' \
             --password user-al:password:useral \
