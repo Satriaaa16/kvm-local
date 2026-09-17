@@ -75,7 +75,7 @@ jobs:
      - name: setup user and password
        run: |
             image=noble-server-cloudimg-amd64
-            virt-customize image/$image.qcow2 \
+            virt-customize -a image/$image.qcow2 \
             --run-command 'useradd -m -s /bin/bash user-al || true' \
             --password user-al:password:useral \
             --run-command 'usermod -aG sudo user-al || true' \
