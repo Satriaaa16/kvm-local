@@ -74,7 +74,7 @@ jobs:
 
      - name: setup user and password
        run: |
-            virt customize image/$image.qcow2 \
+            virt-customize image/$image.qcow2 \
             --run-command 'useradd -m -s /bin/bash user-al || true' \
             --password user-al:password:useral \
             --run-command 'usermod -aG sudo user-al || true' \
