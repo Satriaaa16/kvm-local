@@ -76,7 +76,10 @@ jobs:
        run: |
             image=noble-server-cloudimg-amd64
             export LIBGUESTFS_DEBUG=1 LIBGUESTFS_TRACE=1
-            virt-customize -a image/$image.qcow2 \
+            sudo chmod 0644 /boot
+            export LIBGUESTFS_BACKEND=direct
+            
+            sudo -E virt-customize -a image/$image.qcow2 \
             --run-command 'useradd -m -s /bin/bash user-al || true' \
             --password user-al:password:useral \
             --run-command 'usermod -aG sudo user-al || true' \
