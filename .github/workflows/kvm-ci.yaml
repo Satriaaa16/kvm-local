@@ -78,6 +78,9 @@ jobs:
             export LIBGUESTFS_DEBUG=1 LIBGUESTFS_TRACE=1
             sudo chmod 0644 /boot
             export LIBGUESTFS_BACKEND=direct
+            sudo mkdir -p /tmp/guestfs-tmp
+            sudo chmod 777 /tmp/guestfs-tmp
+            export TMPDIR=/tmp/guestfs-tmp
             
             sudo -E virt-customize -a image/$image.qcow2 \
             --run-command 'useradd -m -s /bin/bash user-al || true' \
