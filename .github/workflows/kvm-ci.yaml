@@ -16,6 +16,15 @@ jobs:
      - name: Checkout
        uses: actions/checkout@v4 # sebelumnya 2
 
+     - name: caching
+       uses: actions/cache@v2
+       with:
+         path: ~/.npm
+         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+         restore-keys: |
+            ${{ runner.os }}-node-
+         
+
      - name: Install kvm
        run: |
            sudo apt update > /dev/null 2>&1
@@ -74,22 +83,23 @@ jobs:
 
      - name: setup user and password
        run: |
-            image=noble-server-cloudimg-amd64
-            export LIBGUESTFS_DEBUG=1 LIBGUESTFS_TRACE=1
-            sudo chmod 0644 /boot
-            export LIBGUESTFS_BACKEND=direct
-            sudo mkdir -p /tmp/guestfs-tmp
-            sudo chmod 777 /tmp/guestfs-tmp
-            export TMPDIR=/tmp/guestfs-tmp
-            
-            sudo -E virt-customize -a image/$image.qcow2 \
-            --run-command 'useradd -m -s /bin/bash user-al || true' \
-            --password user-al:password:useral \
-            --run-command 'usermod -aG sudo user-al || true' \
-            --root-password password:useral \
-            --run-command 'mkdir -p /etc/network/interfaces.d' \
-            --write '/etc/network/interfaces.d/eth0:auto eth0iface eth0 inet dhcp' \
-            --run-command 'systemctl enable systemd-networkd || true'
+        sudo chmod 0644 /boot/vmlinuz-*
+        
+        sudo mkdir -p /tmp/guestfs-tmp
+        sudo chmod 777 /tmp/guestfs-tmp
+        
+        export LIBGUESTFS_BACKEND=direct
+        export TMPDIR=/tmp/guestfs-tmp
+        image="noble-server-cloudimg-amd64"
+        
+        sudo -E virt-customize -a "image/$image.qcow2" \
+          --run-command 'useradd -m -s /bin/bash user-al || true' \
+          --password 'user-al:password:useral' \
+          --run-command 'usermod -aG sudo user-al || true' \
+          --root-password 'password:useral' \
+          --run-command 'mkdir -p /etc/network/interfaces.d' \
+          --write '/etc/network/interfaces.d/eth0:auto eth0iface eth0 inet dhcp' \
+          --run-command 'systemctl enable systemd-networkd || true'
                       
      
      
