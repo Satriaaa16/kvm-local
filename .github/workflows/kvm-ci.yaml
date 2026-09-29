@@ -24,6 +24,10 @@ jobs:
          restore-keys: |
             ${{ runner.os }}-apt-kvm 
             
+     - name: Fix cache permission
+       run: |
+           sudo chmod -R 777 /var/cache/apt/archives
+            
      - name: keep deb file
        run: |
             echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/100keep-cache
