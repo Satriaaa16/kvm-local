@@ -25,3 +25,8 @@ jobs:
             ls
             pwd
             
+      - name: install image
+        timeout-minutes: 3
+        working-directory: /home/satria16alan/Dokumen/kvm
+        run: |
+            ./requirement.sh
