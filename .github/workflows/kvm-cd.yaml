@@ -40,6 +40,10 @@ jobs:
           key: ${{ runner.os }}-${{ hashFiles('requirement.sh')}}
           restore-keys: kvm-image-${{ runner.os}}-
 
+      - name: setup kvm
+        run: |
+            ./set-user-password.sh
+
       - name: Create kvm
         run: |
             ./create-kvm.sh
