@@ -1,2 +1,2 @@
-image/*.qcow2
-image/*.ova
+*.qcow2
+*.ova
