@@ -30,7 +30,7 @@ jobs:
 
       - name: install image for kvm
         run: |
-            sudo chmod +x requirement.sh
+            chmod +x requirement.sh
             ./requirement.sh
 
       - name: Cache Image
