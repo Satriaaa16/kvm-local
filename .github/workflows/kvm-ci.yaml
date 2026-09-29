@@ -24,10 +24,6 @@ jobs:
          restore-keys: |
             ${{ runner.os }}-apt-kvm 
             
-     - name: Fix cache permission
-       run: |
-           sudo chmod -R 777 /var/cache/apt/archives
-            
      - name: keep deb file
        run: |
             echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/100keep-cache
@@ -141,11 +137,12 @@ jobs:
 
             timeout 3s sudo virsh console test-vm || true
             exit 0
-           
-
-          
-          
- #         export image=noble-server-cloudimg-amd64
- #       tar -xvf image/$image.ova > hasil.txt
+            
+     - name: Fix APT cache permissions and cleanup locks
+       if: always() # Dipastikan selalu berjalan meskipun ada step sebelumnya yang error
+       run: |
+            sudo rm -rf /var/cache/apt/archives/partial
+            sudo rm -f /var/cache/apt/archives/lock*
+            sudo chmod -R 777 /var/cache/apt/archives
           
           
