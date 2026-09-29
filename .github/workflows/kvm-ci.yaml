@@ -22,8 +22,7 @@ jobs:
          path: /var/cache/apt/archives
          key: ${{ runner.os }}-apt-kvm${{ hashFiles('**/DockerFile','.github/workflows/*')}}
          restore-keys: |
-            ${{ runner.os }}-apt-kvm
-
+            ${{ runner.os }}-apt-kvm > /dev/null 2>&1
      - name: Install kvm
        run: |
            sudo apt update > /dev/null 2>&1
