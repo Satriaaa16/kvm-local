@@ -47,7 +47,7 @@ esac
 BASE_IMAGE_PATH="${BASE_IMAGE_DIR}/${BASE_IMAGE_NAME}"
 ACTIVE_VM_DISK="${VM_DISK_DIR}/${NAMEKVM}.qcow2"
 
-# Validation
+# Validation Base Image
 if [ ! -f "$BASE_IMAGE_PATH" ]; then
     echo "❌ Base Image tidak ditemukan di: $BASE_IMAGE_PATH"
     echo "👉 Jalankan './requirement.sh $DISTRO_CHOICE' terlebih dahulu!"
@@ -59,11 +59,24 @@ echo "🚀 [CREATE KVM] Deploying VM: $NAMEKVM ($DISTRO_CHOICE)"
 echo "   Target Disk : $ACTIVE_VM_DISK"
 echo "=========================================================="
 
-# 1. Buat CoW Overlay Disk (Overlay terpisah di folder /vms/)
+# 1. CLEANUP DOMAIN VM LAMA JIKA ADA (Mencegah error 'Nama guest sudah digunakan')
+if virsh dominfo "$NAMEKVM" &>/dev/null; then
+    echo "🧹 Domain VM '$NAMEKVM' lama terdeteksi, membersihkan..."
+    virsh destroy "$NAMEKVM" 2>/dev/null || true
+    virsh undefine "$NAMEKVM" 2>/dev/null || true
+fi
+
+# 2. CLEANUP FILE DISK LAMA JIKA ADA (Mencegah 'Permission Denied' dari qemu-img)
+if [ -f "$ACTIVE_VM_DISK" ]; then
+    echo "🧹 Menghapus file disk lama..."
+    rm -f "$ACTIVE_VM_DISK" 2>/dev/null || sudo rm -f "$ACTIVE_VM_DISK"
+fi
+
+# 3. Buat CoW Overlay Disk
 echo "📦 1. Membuat disk turunan (overlay) dari Base Image..."
 qemu-img create -f qcow2 -F qcow2 -b "$BASE_IMAGE_PATH" "$ACTIVE_VM_DISK" 20G
 
-# 2. Spin-Up VM dengan virt-install
+# 4. Spin-Up VM dengan virt-install
 echo "🖥️  2. Memulai proses virt-install..."
 virt-install \
   --virt-type=kvm \
