@@ -22,7 +22,12 @@ jobs:
          path: /var/cache/apt/archives
          key: ${{ runner.os }}-apt-kvm${{ hashFiles('**/DockerFile','.github/workflows/*')}}
          restore-keys: |
-            ${{ runner.os }}-apt-kvm > /dev/null 2>&1
+            ${{ runner.os }}-apt-kvm 
+            
+     - name: keep deb file
+       run: |
+            echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/100keep-cache
+            
      - name: Install kvm
        run: |
            sudo apt update > /dev/null 2>&1
