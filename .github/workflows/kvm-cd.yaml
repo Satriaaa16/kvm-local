@@ -24,9 +24,15 @@ jobs:
             cd /home/satria16alan/Dokumen/kvm
             ls
             pwd
-            
-      - name: install image
-        timeout-minutes: 3
-        working-directory: /home/satria16alan/Dokumen/kvm
-        run: |
-            ./requirement.sh
+
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      - name: Cache Image
+        uses: actions/cache@v5
+        with:
+          path: ./image
+          key: ${{ runner.os }}-${{ hashFiles('requirement.sh')}}
+          restore-keys: kvm-image-${{ runner.os}}-
+          
+          
