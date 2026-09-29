@@ -1,13 +1,14 @@
 #!/bin/bash
-
-# Exit jika terjadi error
 set -e
 
-# Ambil distro dari argumen pertama, jika tidak diisi default ke 'ubuntu'
-# Contoh penggunaan: ./requirement.sh debian
 DISTRO_CHOICE="${1:-ubuntu}"
 
-IMAGE_DIR="./image"
+# ==========================================================
+# UBAH KELUAR KE DIREKTORI LOKAL HOST PERMANEN
+# ==========================================================
+IMAGE_DIR="/home/satria16alan/kvm-images"
+# Atau bisa juga pakai: IMAGE_DIR="/var/lib/libvirt/images"
+
 mkdir -p "$IMAGE_DIR"
 
 case "$DISTRO_CHOICE" in
@@ -24,7 +25,7 @@ case "$DISTRO_CHOICE" in
     IMAGE_URL="https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-virt-3.20.3-x86_64.iso"
     ;;
   *)
-    echo "❌ Distro '$DISTRO_CHOICE' tidak dikenal! (Gunakan: ubuntu | debian | alpine)"
+    echo "❌ Distro '$DISTRO_CHOICE' tidak dikenal!"
     exit 1
     ;;
 esac
@@ -32,13 +33,14 @@ esac
 IMAGE_PATH="${IMAGE_DIR}/${IMAGE_NAME}"
 
 echo "=========================================================="
-echo "🚀 [REQUIREMENT] Menyiapkan Image: $DISTRO_CHOICE"
+echo "🚀 [REQUIREMENT] Menyiapkan Image di Host Local: $DISTRO_CHOICE"
 echo "=========================================================="
 
 if [ -f "$IMAGE_PATH" ]; then
-    echo "ℹ️  Image '$IMAGE_NAME' sudah ada di lokal. Skip download."
+    echo "ℹ️  Image '$IMAGE_NAME' sudah ada di Host ($IMAGE_PATH)."
+    echo "⚡ Skip download!"
 else
-    echo "⬇️  Downloading dari official source..."
+    echo "⬇️  Downloading langsung ke folder lokal host..."
     echo "    URL: $IMAGE_URL"
     
     if command -v curl &> /dev/null; then
@@ -51,19 +53,14 @@ else
     fi
 fi
 
-# ==========================================================
-# OUTPUT SUMMARY DI AKHIR (CEK FILE LOKAL)
-# ==========================================================
+# Summary
 FILE_SIZE=$(du -h "$IMAGE_PATH" | cut -f1)
-FULL_PATH=$(realpath "$IMAGE_PATH")
 
 echo ""
 echo "=========================================================="
-echo "📊 SUMMARY IMAGE READY FOR KVM"
+echo "📊 SUMMARY IMAGE READY ON HOST LOCAL"
 echo "=========================================================="
 echo "  Status        : READY ✅"
-echo "  Distro Target : $DISTRO_CHOICE"
-echo "  File Name     : $IMAGE_NAME"
+echo "  Absolute Path : $IMAGE_PATH"
 echo "  File Size     : $FILE_SIZE"
-echo "  Absolute Path : $FULL_PATH"
 echo "=========================================================="
