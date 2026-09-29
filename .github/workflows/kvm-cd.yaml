@@ -39,5 +39,8 @@ jobs:
           path: ./image
           key: ${{ runner.os }}-${{ hashFiles('requirement.sh')}}
           restore-keys: kvm-image-${{ runner.os}}-
-          
+
+      - name: Create kvm
+        run: |
+            ./create-kvm.sh
           
