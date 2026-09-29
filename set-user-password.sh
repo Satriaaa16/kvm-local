@@ -33,7 +33,11 @@ if [ ! -f "$VM_DISK" ]; then
     ./create-kvm.sh "$INPUT_NAME"
 fi
 
-# 3. SETELAH FILE PASTI ADA -> INJECT CREDENTIALS
+# 3. MATIKAN VM SEBENTAR AGAR DISK TIDAK TERKUNCI
+echo "🛑 Memastikan VM '$NAMEKVM' offline sebelum di-customize..."
+virsh destroy "$NAMEKVM" 2>/dev/null || true
+
+# 4. SETELAH FILE PASTI ADA -> INJECT CREDENTIALS
 echo "=========================================================="
 echo "🔧 [CUSTOMIZE] Injecting credentials & network setup to:"
 echo "   $VM_DISK"
@@ -41,12 +45,31 @@ echo "=========================================================="
 
 virt-customize -a "$VM_DISK" \
   --run-command 'useradd -m -s /bin/bash user-al || true' \
-  --password user-al:password:useral \
-  --run-command 'usermod -aG sudo user-al || true' \
+  --password user-al:useral \
   --root-password password:useral \
+  --run-command 'usermod -aG sudo user-al || true' \
   --run-command 'echo "user-al ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/user-al' \
   --run-command 'chmod 440 /etc/sudoers.d/user-al' \
   --run-command 'systemctl enable systemd-networkd systemd-resolved || true'
 
+# 5. NYALAKAN KEMBALI VM
+echo "🚀 Nyalakan kembali VM '$NAMEKVM'..."
+virsh start "$NAMEKVM" 2>/dev/null || true
+
+# 6. SUMMARY KREDENSIAL YANG DI-INJECT
 echo ""
-echo "✅ [SUCCESS] Credentials berhasil di-inject ke $NAMEKVM!"
+echo "=========================================================="
+echo "✅ [SUCCESS] CREDENTIALS SUCCESSFULLY INJECTED!"
+echo "=========================================================="
+echo "  Target VM   : $NAMEKVM"
+echo "  Target Disk : $VM_DISK"
+echo "----------------------------------------------------------"
+echo "  USER ACCESS :"
+echo "    Username  : user-al"
+echo "    Password  : useral"
+echo "    Sudo      : YES (NOPASSWD)"
+echo "----------------------------------------------------------"
+echo "  ROOT ACCESS :"
+echo "    Username  : root"
+echo "    Password  : useral"
+echo "=========================================================="
