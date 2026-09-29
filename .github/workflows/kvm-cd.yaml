@@ -1,0 +1,27 @@
+# This is a basic workflow to help you get started with Actions
+
+name: prod-deploy-kvm
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  test-local:
+    runs-on: self-hosted
+    steps:
+      - name: test integrate
+        timeout-minutes: 1
+        run: |
+            pwd
+            cd /home/satria16alan/Dokumen/kvm
+            ls
+            pwd
+            
