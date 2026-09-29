@@ -20,4 +20,8 @@ jobs:
       - name: test integrate
         timeout-minutes: 1
         run: |
-            ls 
+            pwd
+            cd /home/satria16alan/Dokumen/kvm
+            ls
+            pwd
+            
