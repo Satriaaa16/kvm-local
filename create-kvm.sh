@@ -2,20 +2,29 @@
 set -e
 
 # ==========================================================
-# INPUT PARAMETER
-# Usage: ./create-kvm.sh <nama_vm> [ubuntu|debian|alpine]
-# Contoh: ./create-kvm.sh my-test-vm ubuntu
+# INPUT PARAMETER FLEXIBLE & AUTO-NAMING
+# Usage:
+#   1. ./create-kvm.sh ubuntu             -> Nama VM otomatis: "vm-ubuntu"
+#   2. ./create-kvm.sh my-custom-vm debian -> Nama VM custom: "my-custom-vm"
 # ==========================================================
-NAMEKVM="${1:-test-vm}"
-DISTRO_CHOICE="${2:-ubuntu}"
+PARAM1="${1:-ubuntu}"
+PARAM2="$2"
 
-# Directory Storage Utama
+if [ -n "$PARAM2" ]; then
+    NAMEKVM="$PARAM1"
+    DISTRO_CHOICE="$PARAM2"
+else
+    DISTRO_CHOICE="$PARAM1"
+    NAMEKVM="vm-${DISTRO_CHOICE}"
+fi
+
+# Directory Storage
 BASE_IMAGE_DIR="/home/satria16alan/Dokumen/kvm/image"
 VM_DISK_DIR="/home/satria16alan/Dokumen/kvm/vms"
 
 mkdir -p "$VM_DISK_DIR"
 
-# Map Distro ke File Name
+# Mapping Distro (Harus presisi dengan requirement.sh)
 case "$DISTRO_CHOICE" in
   ubuntu)
     BASE_IMAGE_NAME="ubuntu-24.04-minimal-cloudimg-amd64.img"
@@ -30,7 +39,7 @@ case "$DISTRO_CHOICE" in
     OS_VARIANT="alpinelinux3.18"
     ;;
   *)
-    echo "❌ Distro '$DISTRO_CHOICE' tidak valid!"
+    echo "❌ Distro '$DISTRO_CHOICE' tidak dikenal!"
     exit 1
     ;;
 esac
@@ -38,23 +47,24 @@ esac
 BASE_IMAGE_PATH="${BASE_IMAGE_DIR}/${BASE_IMAGE_NAME}"
 ACTIVE_VM_DISK="${VM_DISK_DIR}/${NAMEKVM}.qcow2"
 
-# 1. Cek apakah Base Image hasil requirement.sh ada
+# Validation
 if [ ! -f "$BASE_IMAGE_PATH" ]; then
     echo "❌ Base Image tidak ditemukan di: $BASE_IMAGE_PATH"
-    echo "👉 Tolong jalankan './requirement.sh $DISTRO_CHOICE' terlebih dahulu!"
+    echo "👉 Jalankan './requirement.sh $DISTRO_CHOICE' terlebih dahulu!"
     exit 1
 fi
 
 echo "=========================================================="
 echo "🚀 [CREATE KVM] Deploying VM: $NAMEKVM ($DISTRO_CHOICE)"
+echo "   Target Disk : $ACTIVE_VM_DISK"
 echo "=========================================================="
 
-# 2. Buat Copy-On-Write (CoW) Disk Overlay agar Base Image Master aman
-echo "📦 Membuat disk turunan (overlay) dari Base Image..."
+# 1. Buat CoW Overlay Disk (Overlay terpisah di folder /vms/)
+echo "📦 1. Membuat disk turunan (overlay) dari Base Image..."
 qemu-img create -f qcow2 -F qcow2 -b "$BASE_IMAGE_PATH" "$ACTIVE_VM_DISK" 20G
 
-# 3. Eksekusi virt-install
-echo "🖥️  Proses provisioning virt-install..."
+# 2. Spin-Up VM dengan virt-install
+echo "🖥️  2. Memulai proses virt-install..."
 virt-install \
   --virt-type=kvm \
   --name "$NAMEKVM" \
@@ -72,6 +82,7 @@ echo ""
 echo "=========================================================="
 echo "✅ VM '$NAMEKVM' BERHASIL DIBUAT & RUNNING!"
 echo "=========================================================="
-echo "  Disk VM Active : $ACTIVE_VM_DISK"
+echo "  VM Name        : $NAMEKVM"
+echo "  Disk Active    : $ACTIVE_VM_DISK"
 echo "  Base Image Ref : $BASE_IMAGE_PATH"
 echo "=========================================================="
