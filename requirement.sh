@@ -4,10 +4,9 @@ set -e
 DISTRO_CHOICE="${1:-ubuntu}"
 
 # ==========================================================
-# UBAH KELUAR KE DIREKTORI LOKAL HOST PERMANEN
+# DIREKTORI MASTER IMAGE PERSISTEN DI HOST
 # ==========================================================
 IMAGE_DIR="/home/satria16alan/Dokumen/kvm/image"
-# Atau bisa juga pakai: IMAGE_DIR="/var/lib/libvirt/images"
 
 mkdir -p "$IMAGE_DIR"
 
