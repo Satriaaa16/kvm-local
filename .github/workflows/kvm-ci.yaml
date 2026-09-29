@@ -51,6 +51,7 @@ jobs:
 
             # 3. Tambahkan user ke grup
             sudo usermod -aG libvirt,kvm $USER
+            sudo chmod 666 /dev/kvm
 
             # 4. Set Environment Variable langsung di level process (tanpa .bashrc)
             export LIBVIRT_DEFAULT_URI="qemu:///system"
