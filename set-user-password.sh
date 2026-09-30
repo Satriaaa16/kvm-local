@@ -42,13 +42,16 @@ if [ "$FLAG" == "--password" ] && [ -n "$CUSTOM_PASS" ]; then
     )
     EXTRA_CMDS=()
 else
-    MODE_INFO="PASSWORDLESS (DEFAULT - TANPA PASSWORD)"
+    MODE_INFO="PASSWORDLESS (FULL CONSOLE & SSH ACCESS)"
     PASS_ARGS=()
     EXTRA_CMDS=(
       --run-command 'passwd -d user-al'
       --run-command 'passwd -d root'
       --run-command 'sed -i "s/#PermitEmptyPasswords no/PermitEmptyPasswords yes/g" /etc/ssh/sshd_config || true'
       --run-command 'sed -i "s/PermitEmptyPasswords no/PermitEmptyPasswords yes/g" /etc/ssh/sshd_config || true'
+      --run-command 'sed -i "s/nullok_secure/nullok/g" /etc/pam.d/common-auth || true'
+      --run-command 'sed -i "s/pam_unix.so/pam_unix.so nullok/g" /etc/pam.d/common-auth || true'
+      --run-command 'sed -i "s/pam_unix.so nullok nullok/pam_unix.so nullok/g" /etc/pam.d/common-auth || true'
     )
 fi
 
@@ -86,7 +89,7 @@ echo "    Username  : user-al"
 if [ "$FLAG" == "--password" ] && [ -n "$CUSTOM_PASS" ]; then
     echo "    Password  : $CUSTOM_PASS"
 else
-    echo "    Password  : (NONE / Cukup tekan Enter)"
+    echo "    Password  : (NONE / Cukup tekan Enter saat diminta Password)"
 fi
 echo "    Sudo      : YES (NOPASSWD)"
 echo "=========================================================="
