@@ -1,19 +1,35 @@
 #!/bin/bash
 set -e
 
-NAMEKVM="${1:-vm-ubuntu}"
+# ==========================================================
+# INPUT PARAMETER FLEXIBLE & AUTO-NAMING (Sesuai all-create-set.sh)
+# Usage:
+#   1. ./setup-network.sh ubuntu             -> Nama VM target: "vm-ubuntu"
+#   2. ./setup-network.sh my-custom-vm debian -> Nama VM target: "my-custom-vm"
+#   3. ./setup-network.sh                    -> Default: "vm-ubuntu"
+# ==========================================================
+PARAM1="${1:-ubuntu}"
+PARAM2="$2"
+
+if [ -n "$PARAM2" ]; then
+    NAMEKVM="$PARAM1"
+    DISTRO_CHOICE="$PARAM2"
+else
+    DISTRO_CHOICE="$PARAM1"
+    NAMEKVM="vm-${DISTRO_CHOICE}"
+fi
 
 echo "=========================================================="
 echo "🌐 [JOB 2] Injecting Network via Virsh Console: $NAMEKVM"
 echo "=========================================================="
 
-echo "⏳ Menunggu VM booting sempurna (8 detik)..."
+echo "⏳ Menunggu VM '$NAMEKVM' booting sempurna (8 detik)..."
 sleep 8
 
-# Eksekusi expect dengan penanganan prompt login & autologin
-expect <<'EOF'
+# Eksekusi expect dengan passing $NAMEKVM secara dinamis
+expect <<EOF
 set timeout 30
-spawn virsh console vm-ubuntu
+spawn virsh console $NAMEKVM
 
 # 1. Pancing console dengan ENTER ganda
 send "\r\r"
@@ -40,7 +56,7 @@ expect {
 
 # 3. Tangani Sudo Password jika diminta
 expect {
-    "password for user-al:" { send "useral\r" }
+    "\[sudo\] password for user-al:" { send "useral\r" }
     "root@ubuntu:~#" { send "\r" }
 }
 
@@ -93,6 +109,7 @@ if [ -n "$VM_IP" ]; then
     echo "=========================================================="
     echo "🎉 [JOB 2 SUCCESS] NETWORK UP & IP ALLOCATED!"
     echo "=========================================================="
+    echo "  VM Name        : $NAMEKVM"
     echo "  IP Address     : $VM_IP"
     echo "  SSH Access     : ssh user-al@$VM_IP"
     echo "  Node Exporter  : http://$VM_IP:9100/metrics"
