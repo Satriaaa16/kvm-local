@@ -70,5 +70,5 @@ jobs:
         - name: setup prometheus
           run: | 
               chmod +x setup-prome.sh
-              ./setup-prome.s
+              ./setup-prome.sh
               
