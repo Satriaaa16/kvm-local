@@ -58,7 +58,7 @@ jobs:
        - name: setup networking
          run: |
              chmod +x setup-network.sh
-             ./setup-nework.sh
+             ./setup-network.sh
       
     
         
