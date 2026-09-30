@@ -4,8 +4,8 @@ set -e
 # ==========================================================
 # INPUT PARAMETER FLEXIBLE & AUTO-NAMING
 # Usage:
-#   1. ./create-kvm.sh ubuntu             -> Nama VM: "vm-ubuntu"
-#   2. ./create-kvm.sh my-custom-vm debian -> Nama VM: "my-custom-vm"
+#   1. ./all-create-set.sh ubuntu             -> Nama VM: "vm-ubuntu"
+#   2. ./all-create-set.sh my-custom-vm debian -> Nama VM: "my-custom-vm"
 # ==========================================================
 PARAM1="${1:-ubuntu}"
 PARAM2="$2"
@@ -56,7 +56,7 @@ if [ ! -f "$BASE_IMAGE_PATH" ]; then
 fi
 
 # ----------------------------------------------------------
-# PRE-FETCH NODE EXPORTER BINARY ON HOST (Mencegah DNS Error)
+# PRE-FETCH NODE EXPORTER BINARY ON HOST
 # ----------------------------------------------------------
 NODE_EXPORTER_BIN="${CACHE_DIR}/node_exporter"
 if [ ! -f "$NODE_EXPORTER_BIN" ]; then
@@ -152,7 +152,7 @@ while [ -z "$VM_IP" ] && [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     RETRY_COUNT=$((RETRY_COUNT+1))
 done
 
-# 7. AUTOMATIC HEALTH CHECK (VERIFIKASI PIPELINE)
+# 7. AUTOMATIC HEALTH CHECK
 PING_STATUS="SKIPPED"
 EXPORTER_STATUS="SKIPPED"
 
@@ -198,4 +198,4 @@ echo "    Sudo Priv    : YES (NOPASSWD)"
 echo "----------------------------------------------------------"
 echo "  MONITORING METRICS :"
 echo "    Node Exporter: http://$VM_IP:9100/metrics"
-=========================================================="
+echo "=========================================================="
