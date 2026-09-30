@@ -39,7 +39,7 @@ sleep 1
 send "\r\r"
 sleep 1
 
-# 2. Tangani Login TTY dengan Presisi
+# 2. Tangani Login TTY
 expect {
     "login:" {
         send "user-al\r"
@@ -65,7 +65,7 @@ expect {
     }
 }
 
-# 3. Tangani Password Sudo jika diminta
+# 3. Tangani Password Sudo
 expect {
     "password for" { send "useral\r"; expect "*#*" }
     "*#*" { }
@@ -93,7 +93,7 @@ send "chown prometheus:prometheus /usr/local/bin/prometheus /usr/local/bin/promt
 expect "*#*"
 
 # 6. Inject Konfigurasi prometheus.yml
-send "echo -e 'global:\n  scrape_interval: 15s\n\nscrape_configs:\n  - job_name: \"prometheus_internal\"\n    static_configs:\n      - targets: [\"localhost:9090\"]\n\n  - job_name: \"node_exporter\"\n    static_configs:\n      - targets: [\"localhost:9100\"]' > /etc/prometheus/prometheus.yml\r"
+send "echo -e 'global:\n  scrape_interval: 15s\n\nscrape_configs:\n  - job_name: prometheus_internal\n    static_configs:\n      - targets: [localhost:9090]\n\n  - job_name: node_exporter\n    static_configs:\n      - targets: [localhost:9100]' > /etc/prometheus/prometheus.yml\r"
 expect "*#*"
 
 send "chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus\r"
