@@ -1,21 +1,13 @@
 #!/bin/bash
 set -eo pipefail
 
-# ==========================================================
-# INPUT PARAMETER FLEXIBLE & AUTO-NAMING
-# Usage:
-#   1. ./setup-prome-in-vm.sh                 -> Nama VM: "vm-ubuntu" (Default)
-#   2. ./setup-prome-in-vm.sh debian          -> Nama VM: "vm-debian"
-#   3. ./setup-prome-in-vm.sh nginx-devops    -> Nama VM: "nginx-devops"
-#   4. ./setup-prome-in-vm.sh my-custom-vm debian -> Nama VM: "my-custom-vm"
-# ==========================================================
 PARAM1="${1:-ubuntu}"
 PARAM2="$2"
 
 if [ -n "$PARAM2" ]; then
     NAMEKVM="$PARAM1"
     DISTRO_CHOICE="$PARAM2"
-elif [[ "$PARAM1" == vm-* ]] || [[ "$PARAM1" == *devops* ]]; then
+elif [[ "$PARAM1" == vm-* ]] \vert{}\vert{} [[ "$PARAM1" == *devops* ]]; then
     NAMEKVM="$PARAM1"
     DISTRO_CHOICE="ubuntu"
 else
@@ -27,67 +19,60 @@ echo "=========================================================="
 echo "📊 [JOB 3] Installing Prometheus Server Inside VM: $NAMEKVM"
 echo "=========================================================="
 
-# Validasi apakah command 'expect' dan 'virsh' tersedia di Host
-for cmd in expect virsh; do
-    if ! command -v $cmd &> /dev/null; then
-        echo "❌ Error: Command '$cmd' tidak ditemukan. Harap install terlebih dahulu."
-        exit 1
-    fi
-done
-
-# Pastikan VM sedang berjalan
-VM_STATE=$(virsh domstate "$NAMEKVM" 2>/dev/null || echo "not_found")
-if [ "$VM_STATE" != "running" ]; then
-    echo "⚠️  VM '$NAMEKVM' sedang tidak berjalan (Status: $VM_STATE). Menyalakan VM..."
-    virsh start "$NAMEKVM" || { echo "❌ Gagal menyalakan VM '$NAMEKVM'"; exit 1; }
-    echo "⏳ Menunggu boot VM selama 10 detik..."
-    sleep 10
+# Pastikan VM running
+if [ "$(virsh domstate "$NAMEKVM" 2>/dev/null)" != "running" ]; then
+    echo "⚠️  VM '$NAMEKVM' belum running, menyalakan..."
+    virsh start "$NAMEKVM"
+    sleep 8
 fi
 
 echo "⏳ Menyiapkan koneksi serial console ke VM '$NAMEKVM'..."
 
-# Eksekusi expect untuk install & setup Prometheus di dalam VM via Serial Console
 expect <<EOF
-set timeout 300
+set timeout 180
 log_user 1
 
 spawn virsh console $NAMEKVM
 
-# 1. Pancing TTY Console dengan ENTER
+# 1. Pancing console agar memunculkan prompt
 send "\r\r"
+sleep 2
+
+# 2. Handshake Login & Root Privileges
 expect {
     "login:" {
-        send "useral\r"
+        send "user-al\r"
         expect "Password:"
         send "useral\r"
         expect "*$*"
         send "sudo -i\r"
-        expect "password for"
-        send "useral\r"
     }
-    "*$*" {
+    "user-al@ubuntu:~$" {
         send "sudo -i\r"
-        expect "*password*"
-        send "useral\r"
     }
-    "*#*" {
-        # Sudah berada di root
+    "root@ubuntu:~#" {
+        # Sudah di root
     }
     timeout {
         send "\r"
+        send "sudo -i\r"
     }
 }
 
-expect "*#*"
+# 3. Tangani Password Sudo jika diminta
+expect {
+    "password for" { send "useral\r"; expect "*#*" }
+    "*#*" { }
+}
 
-# 2. Setup User & Direktori Prometheus
+# 4. Setup User & Direktori Prometheus di VM
 send "useradd --no-create-home --shell /bin/false prometheus 2>/dev/null || true\r"
 expect "*#*"
 
 send "mkdir -p /etc/prometheus /var/lib/prometheus /tmp/prom-install\r"
 expect "*#*"
 
-# 3. Download Binary Prometheus v2.54.1 dari dalam VM
+# 5. Download & Extract Binary Prometheus v2.54.1
 send "curl -sSL https://github.com/prometheus/prometheus/releases/download/v2.54.1/prometheus-2.54.1.linux-amd64.tar.gz -o /tmp/prom-install/prometheus.tar.gz\r"
 expect "*#*"
 
@@ -101,88 +86,43 @@ expect "*#*"
 send "chown prometheus:prometheus /usr/local/bin/prometheus /usr/local/bin/promtool\r"
 expect "*#*"
 
-# 4. Injeksi Configuration file (prometheus.yml)
-send "cat <<'YML' > /etc/prometheus/prometheus.yml\r"
-send "global:\r"
-send "  scrape_interval: 15s\r"
-send "scrape_configs:\r"
-send "  - job_name: 'prometheus_internal'\r"
-send "    static_configs:\r"
-send "      - targets: ['localhost:9090']\r"
-send "  - job_name: 'node_exporter'\r"
-send "    static_configs:\r"
-send "      - targets: ['localhost:9100']\r"
-send "YML\r"
+# 6. Inject Konfigurasi prometheus.yml
+send "echo -e 'global:\n  scrape_interval: 15s\n\nscrape_configs:\n  - job_name: \"prometheus_internal\"\n    static_configs:\n      - targets: [\"localhost:9090\"]\n\n  - job_name: \"node_exporter\"\n    static_configs:\n      - targets: [\"localhost:9100\"]' > /etc/prometheus/prometheus.yml\r"
 expect "*#*"
 
 send "chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus\r"
 expect "*#*"
 
-# 5. Buat Systemd Unit Service
-send "cat <<'SERVICE' > /etc/systemd/system/prometheus.service\r"
-send "[Unit]\r"
-send "Description=Prometheus Server\r"
-send "Wants=network-online.target\r"
-send "After=network-online.target\r"
-send "\r"
-send "[Service]\r"
-send "User=prometheus\r"
-send "Group=prometheus\r"
-send "Type=simple\r"
-send "ExecStart=/usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus --web.listen-address=0.0.0.0:9090\r"
-send "Restart=always\r"
-send "\r"
-send "[Install]\r"
-send "WantedBy=multi-user.target\r"
-send "SERVICE\r"
+# 7. Inject Systemd Unit Service Prometheus
+send "echo -e '[Unit]\nDescription=Prometheus Server\nWants=network-online.target\nAfter=network-online.target\n\n[Service]\nUser=prometheus\nGroup=prometheus\nType=simple\nExecStart=/usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus --web.listen-address=0.0.0.0:9090\nRestart=always\n\n[Install]\nWantedBy=multi-user.target' > /etc/systemd/system/prometheus.service\r"
 expect "*#*"
 
-# 6. Enable & Start Service Prometheus
 send "systemctl daemon-reload && systemctl enable --now prometheus\r"
 expect "*#*"
 
-# 7. Cleanup & Keluar dari Console
+# 8. Cleanup & Detach Console
 send "rm -rf /tmp/prom-install\r"
 expect "*#*"
 
 send "exit\r"
 expect "*$*"
-send "exit\r"
+The `virsh console` attempt failed because the interactive login prompt timed out while waiting for a response, preventing the script from executing commands inside the virtual machine.
 
-# Kirim Ctrl+] (\x1d) untuk exit dari virsh console secara bersih
-send "\x1d"
-expect eof
-EOF
+Here is how to fix the issue depending on your goal:
 
-# Otomatis Deteksi IP VM dari KVM DHCP / Guest Agent
-echo ""
-echo "⏳ Mendeteksi IP Address VM '$NAMEKVM'..."
-VM_IP=""
+---
 
-# Method 1: Cek via virsh domifaddr (KVM Guest Agent / ARP)
-VM_IP=$(virsh domifaddr "$NAMEKVM" 2>/dev/null | grep -E -o '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n 1 || true)
+### Option 1: Use `virt-customize` or `virt-builder` (Recommended for Automation)
+If you are automating VM provisioning, interactive `virsh console` scripts using `expect` or `spawn` are notoriously fragile due to timing issues. Instead, inject files or run commands directly into the VM image offline using `virt-customize`:
 
-# Method 2: Fallback via Network DHCP Leases jika Method 1 kosong
-if [ -z "$VM_IP" ]; then
-    VM_MAC=$(virsh dumpxml "$NAMEKVM" 2>/dev/null | grep -i "mac address" | head -n 1 | cut -d"'" -f2 || true)
-    if [ -n "$VM_MAC" ]; then
-        VM_IP=$(virsh net-dhcp-leases internet-net 2>/dev/null | grep -i "$VM_MAC" | awk '{print $5}' | cut -d'/' -f1 | head -n 1 || true)
-    fi
-fi
+```bash
+# Shutdown the VM first
+virsh shutdown vm-ubuntu
 
-echo ""
-if [ -n "$VM_IP" ]; then
-    echo "=========================================================="
-    echo "🎉 [JOB 3 SUCCESS] PROMETHEUS BERHASIL DIPASANG DI VM!"
-    echo "=========================================================="
-    echo "  VM Name        : $NAMEKVM"
-    echo "  IP Address     : $VM_IP"
-    echo "  Prometheus Web : http://$VM_IP:9090"
-    echo "  Node Exporter  : http://$VM_IP:9100/metrics"
-    echo "=========================================================="
-else
-    echo "=========================================================="
-    echo "✅ Instalasi Selesai di VM '$NAMEKVM'."
-    echo "⚠️  IP VM belum terdeteksi otomatis. Silakan cek IP manual."
-    echo "=========================================================="
-fi
+# Execute setup directly on the disk image
+virt-customize -a /path/to/vm-ubuntu.qcow2 \
+  --upload setup-prome-in-kvm.sh:/tmp/setup.sh \
+  --run-command 'chmod +x /tmp/setup.sh && /tmp/setup.sh'
+
+# Start the VM back up
+virsh start vm-ubuntu
