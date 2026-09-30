@@ -25,7 +25,7 @@ CACHE_DIR="/home/satria16alan/Dokumen/kvm/cache"
 
 mkdir -p "$VM_DISK_DIR" "$CACHE_DIR"
 
-# Mapping Distro (Presisi dengan requirement.sh)
+# Mapping Distro
 case "$DISTRO_CHOICE" in
   ubuntu)
     BASE_IMAGE_NAME="ubuntu-24.04-minimal-cloudimg-amd64.img"
@@ -89,9 +89,9 @@ fi
 echo "📦 1. Membuat disk turunan (overlay) dari Base Image..."
 qemu-img create -f qcow2 -F qcow2 -b "$BASE_IMAGE_PATH" "$ACTIVE_VM_DISK" 20G
 
-# 4. INJECT CREDENTIALS, PERMANENT DISABLE CLOUD-INIT NETWORKING, AUTOLOGIN & NODE EXPORTER
+# 4. INJECT CREDENTIALS, DIRECT SYSTEMD-NETWORKD CONFIG, AUTOLOGIN & NODE EXPORTER
 if [ "$DISTRO_CHOICE" != "alpine" ]; then
-    echo "🔧 2. Injecting credentials, Network Force-Up, Autologin & Node Exporter..."
+    echo "🔧 2. Injecting credentials, Systemd-Networkd DHCP, Autologin & Node Exporter..."
     virt-customize -a "$ACTIVE_VM_DISK" \
       --run-command 'useradd -m -s /bin/bash user-al || true' \
       --password user-al:password:useral \
@@ -107,11 +107,8 @@ if [ "$DISTRO_CHOICE" != "alpine" ]; then
       --run-command 'rm -rf /etc/netplan/* /etc/systemd/network/*' \
       --run-command 'mkdir -p /etc/systemd/system/serial-getty@ttyS0.service.d' \
       --run-command 'echo -e "[Service]\nExecStart=\nExecStart=-/sbin/agetty -o \"-p -- \\\\u\" --autologin user-al --keep-baud 115200,38400,9600 %I \$TERM" > /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf' \
-      --run-command 'mkdir -p /etc/netplan' \
-      --run-command 'echo -e "network:\n  version: 2\n  renderer: networkd\n  ethernets:\n    enp1s0:\n      dhcp4: true\n      critical: true\n    ens3:\n      dhcp4: true\n      critical: true" > /etc/netplan/01-netcfg.yaml' \
-      --run-command 'chmod 600 /etc/netplan/01-netcfg.yaml' \
-      --run-command 'echo -e "#!/bin/sh\nip link set enp1s0 up 2>/dev/null || true\nip link set ens3 up 2>/dev/null || true\nsystemctl restart systemd-networkd\nexit 0" > /etc/rc.local' \
-      --run-command 'chmod +x /etc/rc.local' \
+      --run-command 'mkdir -p /etc/systemd/network' \
+      --run-command 'echo -e "[Match]\nName=en*\n\n[Network]\nDHCP=ipv4" > /etc/systemd/network/10-dhcp.network' \
       --run-command 'systemctl enable systemd-networkd systemd-resolved || true' \
       --run-command 'useradd --no-create-home --shell /bin/false node_exporter || true' \
       --upload "${NODE_EXPORTER_BIN}:/usr/local/bin/node_exporter" \
@@ -135,33 +132,22 @@ virt-install \
   --check path_in_use=off \
   --import
 
-# 6. MENGAMBIL DAN MENAMPILKAN IP ADDRESS AUTOMATIS (BERDASARKAN MAC ADDRESS)
+# 6. MENGAMBIL DAN MENAMPILKAN IP ADDRESS AUTOMATIS
 echo "⏳ Menunggu VM mendapatkan IP Address dari KVM DHCP..."
 VM_IP=""
 RETRY_COUNT=0
 MAX_RETRIES=20
 
-# Ambil MAC Address VM langsung dari domain libvirt
 VM_MAC=$(virsh dumpxml "$NAMEKVM" 2>/dev/null | grep -i "mac address" | head -n 1 | cut -d"'" -f2 || true)
 
 while [ -z "$VM_IP" ] && [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     sleep 2
-    
-    # Method 1: Filter DHCP Leases pakai MAC Address VM (Paling Akurat)
     if [ -n "$VM_MAC" ]; then
         VM_IP=$(virsh net-dhcp-leases internet-net 2>/dev/null | grep -i "$VM_MAC" | awk '{print $5}' | cut -d'/' -f1 | head -n 1 || true)
     fi
-
-    # Method 2: Fallback virsh domifaddr
     if [ -z "$VM_IP" ]; then
         VM_IP=$(virsh domifaddr "$NAMEKVM" 2>/dev/null | grep -E -o '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n 1 || true)
     fi
-
-    # Method 3: Fallback Name Search
-    if [ -z "$VM_IP" ]; then
-        VM_IP=$(virsh net-dhcp-leases internet-net 2>/dev/null | grep -i "$NAMEKVM" | awk '{print $5}' | cut -d'/' -f1 | head -n 1 || true)
-    fi
-    
     RETRY_COUNT=$((RETRY_COUNT+1))
 done
 
