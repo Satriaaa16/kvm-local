@@ -7,48 +7,63 @@ echo "=========================================================="
 echo "🌐 [JOB 2] Injecting Network via Virsh Console: $NAMEKVM"
 echo "=========================================================="
 
-echo "⏳ Menunggu VM booting sempurna (5 detik)..."
-sleep 5
+echo "⏳ Menunggu VM booting sempurna (8 detik)..."
+sleep 8
 
-# Eksekusi expect dengan penanganan prompt autologin
+# Eksekusi expect dengan penanganan prompt login & autologin
 expect <<'EOF'
-set timeout 20
+set timeout 30
 spawn virsh console vm-ubuntu
 
-# 1. Pancing console tekan ENTER sampai dapat prompt
-send "\r"
+# 1. Pancing console dengan ENTER ganda
+send "\r\r"
+
+# 2. Tangani Login (jika belum autologin) maupun Prompt langsung
 expect {
-    "user-al@ubuntu:~$" { send "sudo -i\r" }
-    "root@ubuntu:~#" { send "\r" }
-    timeout { send "\r"; exp_continue }
+    "login:" {
+        send "user-al\r"
+        expect "Password:"
+        send "useral\r"
+        exp_continue
+    }
+    "user-al@ubuntu:~$" {
+        send "sudo -i\r"
+    }
+    "root@ubuntu:~#" {
+        send "\r"
+    }
+    timeout {
+        send "\r"
+        exp_continue
+    }
 }
 
-# 2. Masukkan password sudo jika diminta (Sudo NOPASSWD di-handle aman)
+# 3. Tangani Sudo Password jika diminta
 expect {
     "password for user-al:" { send "useral\r" }
     "root@ubuntu:~#" { send "\r" }
 }
 
-# 3. Naikan Link Interface
+# 4. Naikan Link Interface enp1s0
 expect "root@ubuntu:~#" { send "ip link set enp1s0 up\r" }
 sleep 1
 
-# 4. Injeksi Config systemd-networkd DHCP
+# 5. Injeksi Config systemd-networkd DHCP
 expect "root@ubuntu:~#" { send "mkdir -p /etc/systemd/network\r" }
 sleep 1
 
 expect "root@ubuntu:~#" { send "echo -e '\[Match\]\nName=enp1s0\n\n\[Network\]\nDHCP=ipv4' > /etc/systemd/network/10-dhcp.network\r" }
 sleep 1
 
-# 5. Restart Network Service
+# 6. Restart Network Service
 expect "root@ubuntu:~#" { send "systemctl restart systemd-networkd systemd-resolved\r" }
 sleep 3
 
-# 6. Fallback trigger DHCP jika systemd-networkd lambat
+# 7. Fallback Trigger DHCP
 expect "root@ubuntu:~#" { send "dhclient enp1s0 2>/dev/null || true\r" }
 sleep 2
 
-# 7. Keluar dari Root & Console
+# 8. Keluar dari Root & Console secara bersih
 expect "root@ubuntu:~#" { send "exit\r" }
 expect "user-al@ubuntu:~$" { send "exit\r" }
 
