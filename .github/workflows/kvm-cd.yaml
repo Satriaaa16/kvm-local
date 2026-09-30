@@ -60,5 +60,15 @@ jobs:
              chmod +x setup-network.sh
              ./setup-network.sh
       
-    
-        
+  setup-monitoring-kvm:
+      runs-on: self-hosted
+      needs: setup-inside-kvm
+      steps:
+        - name: Checkout repo
+          uses: actions/checkout@v7
+
+        - name: setup prometheus
+          run: | 
+              chmod +x setup-prome.sh
+              ./setup-prome.s
+              
