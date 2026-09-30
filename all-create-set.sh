@@ -21,10 +21,11 @@ fi
 # Directory Storage
 BASE_IMAGE_DIR="/home/satria16alan/Dokumen/kvm/image"
 VM_DISK_DIR="/home/satria16alan/Dokumen/kvm/vms"
+CACHE_DIR="/home/satria16alan/Dokumen/kvm/cache"
 
-mkdir -p "$VM_DISK_DIR"
+mkdir -p "$VM_DISK_DIR" "$CACHE_DIR"
 
-# Mapping Distro (Presisi dengan requirement.sh)
+# Mapping Distro
 case "$DISTRO_CHOICE" in
   ubuntu)
     BASE_IMAGE_NAME="ubuntu-24.04-minimal-cloudimg-amd64.img"
@@ -54,6 +55,18 @@ if [ ! -f "$BASE_IMAGE_PATH" ]; then
     exit 1
 fi
 
+# ----------------------------------------------------------
+# PRE-FETCH NODE EXPORTER BINARY ON HOST (Mencegah DNS Error)
+# ----------------------------------------------------------
+NODE_EXPORTER_BIN="${CACHE_DIR}/node_exporter"
+if [ ! -f "$NODE_EXPORTER_BIN" ]; then
+    echo "📥 Pre-downloading Node Exporter di Host..."
+    curl -sSL https://github.com/prometheus/node_exporter/releases/download/v1.8.2/node_exporter-1.8.2.linux-amd64.tar.gz -o "${CACHE_DIR}/node_exporter.tar.gz"
+    tar -C "$CACHE_DIR" -xzf "${CACHE_DIR}/node_exporter.tar.gz"
+    mv "${CACHE_DIR}/node_exporter-1.8.2.linux-amd64/node_exporter" "$NODE_EXPORTER_BIN"
+    rm -rf "${CACHE_DIR}/node_exporter*"
+fi
+
 echo "=========================================================="
 echo "🚀 [CREATE KVM] Deploying VM: $NAMEKVM ($DISTRO_CHOICE)"
 echo "   Target Disk : $ACTIVE_VM_DISK"
@@ -76,7 +89,7 @@ fi
 echo "📦 1. Membuat disk turunan (overlay) dari Base Image..."
 qemu-img create -f qcow2 -F qcow2 -b "$BASE_IMAGE_PATH" "$ACTIVE_VM_DISK" 20G
 
-# 4. INJECT CREDENTIALS, NETPLAN, AUTOLOGIN & NODE EXPORTER
+# 4. INJECT CREDENTIALS, NETPLAN, AUTOLOGIN & UPLOAD NODE EXPORTER
 if [ "$DISTRO_CHOICE" != "alpine" ]; then
     echo "🔧 2. Injecting credentials, Netplan DHCP, Autologin & Node Exporter..."
     virt-customize -a "$ACTIVE_VM_DISK" \
@@ -96,11 +109,8 @@ if [ "$DISTRO_CHOICE" != "alpine" ]; then
       --run-command 'chmod 600 /etc/netplan/50-cloud-init.yaml' \
       --run-command 'systemctl enable systemd-networkd systemd-resolved || true' \
       --run-command 'useradd --no-create-home --shell /bin/false node_exporter || true' \
-      --run-command 'curl -sSL https://github.com/prometheus/node_exporter/releases/download/v1.8.2/node_exporter-1.8.2.linux-amd64.tar.gz -o /tmp/node_exporter.tar.gz' \
-      --run-command 'tar -C /tmp -xzf /tmp/node_exporter.tar.gz' \
-      --run-command 'cp /tmp/node_exporter-1.8.2.linux-amd64/node_exporter /usr/local/bin/' \
-      --run-command 'chown node_exporter:node_exporter /usr/local/bin/node_exporter' \
-      --run-command 'rm -rf /tmp/node_exporter*' \
+      --upload "${NODE_EXPORTER_BIN}:/usr/local/bin/node_exporter" \
+      --run-command 'chmod 755 /usr/local/bin/node_exporter && chown node_exporter:node_exporter /usr/local/bin/node_exporter' \
       --run-command 'echo -e "[Unit]\nDescription=Node Exporter\nWants=network-online.target\nAfter=network-online.target\n\n[Service]\nUser=node_exporter\nGroup=node_exporter\nType=simple\nExecStart=/usr/local/bin/node_exporter\n\n[Install]\nWantedBy=multi-user.target" > /etc/systemd/system/node_exporter.service' \
       --run-command 'systemctl enable node_exporter.service'
 fi
