@@ -89,7 +89,7 @@ fi
 echo "📦 1. Membuat disk turunan (overlay) dari Base Image..."
 qemu-img create -f qcow2 -F qcow2 -b "$BASE_IMAGE_PATH" "$ACTIVE_VM_DISK" 20G
 
-# 4. INJECT CREDENTIALS, NETPLAN, AUTOLOGIN & UPLOAD NODE EXPORTER
+# 4. INJECT CREDENTIALS, FIX NETWORK NETPLAN, AUTOLOGIN & NODE EXPORTER
 if [ "$DISTRO_CHOICE" != "alpine" ]; then
     echo "🔧 2. Injecting credentials, Netplan DHCP, Autologin & Node Exporter..."
     virt-customize -a "$ACTIVE_VM_DISK" \
@@ -105,7 +105,7 @@ if [ "$DISTRO_CHOICE" != "alpine" ]; then
       --run-command 'mkdir -p /etc/systemd/system/serial-getty@ttyS0.service.d' \
       --run-command 'echo -e "[Service]\nExecStart=\nExecStart=-/sbin/agetty -o \"-p -- \\\\u\" --autologin user-al --keep-baud 115200,38400,9600 %I \$TERM" > /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf' \
       --run-command 'mkdir -p /etc/netplan' \
-      --run-command 'echo -e "network:\n  version: 2\n  ethernets:\n    enp1s0:\n      dhcp4: true\n    ens3:\n      dhcp4: true" > /etc/netplan/50-cloud-init.yaml' \
+      --run-command 'echo -e "network:\n  version: 2\n  renderer: networkd\n  ethernets:\n    all-en-interfaces:\n      match:\n        name: \"en*\"\n      dhcp4: true\n      optional: false" > /etc/netplan/50-cloud-init.yaml' \
       --run-command 'chmod 600 /etc/netplan/50-cloud-init.yaml' \
       --run-command 'systemctl enable systemd-networkd systemd-resolved || true' \
       --run-command 'useradd --no-create-home --shell /bin/false node_exporter || true' \
@@ -130,7 +130,7 @@ virt-install \
   --check path_in_use=off \
   --import
 
-# 6. MENGAMBIL DAN MENAMPILKAN IP ADDRESS AUTOMATIS
+# 6. MENGAMBIL DAN MENAMPILKAN IP ADDRESS AUTOMATIS (DUAL LOOKUP)
 echo "⏳ Menunggu VM mendapatkan IP Address dari KVM DHCP..."
 VM_IP=""
 RETRY_COUNT=0
@@ -138,7 +138,14 @@ MAX_RETRIES=15
 
 while [ -z "$VM_IP" ] && [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     sleep 2
+    # 1. Coba lewat virsh domifaddr
     VM_IP=$(virsh domifaddr "$NAMEKVM" 2>/dev/null | grep -E -o '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n 1 || true)
+    
+    # 2. Fallback lewat dhcp-leases jika domifaddr masih kosong
+    if [ -z "$VM_IP" ]; then
+        VM_IP=$(virsh net-dhcp-leases internet-net 2>/dev/null | grep "$NAMEKVM" | awk '{print $5}' | cut -d'/' -f1 | head -n 1 || true)
+    fi
+    
     RETRY_COUNT=$((RETRY_COUNT+1))
 done
 
