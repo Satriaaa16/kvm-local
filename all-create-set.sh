@@ -89,9 +89,9 @@ fi
 echo "📦 1. Membuat disk turunan (overlay) dari Base Image..."
 qemu-img create -f qcow2 -F qcow2 -b "$BASE_IMAGE_PATH" "$ACTIVE_VM_DISK" 20G
 
-# 4. INJECT CREDENTIALS, DIRECT SYSTEMD-NETWORKD CONFIG, AUTOLOGIN & NODE EXPORTER
+# 4. INJECT CREDENTIALS, SYSTEMD-NETWORKD AUTO-UP, AUTOLOGIN & NODE EXPORTER
 if [ "$DISTRO_CHOICE" != "alpine" ]; then
-    echo "🔧 2. Injecting credentials, Systemd-Networkd DHCP, Autologin & Node Exporter..."
+    echo "🔧 2. Injecting credentials, Systemd-Networkd DHCP & Auto-UP, Autologin & Node Exporter..."
     virt-customize -a "$ACTIVE_VM_DISK" \
       --run-command 'useradd -m -s /bin/bash user-al || true' \
       --password user-al:password:useral \
@@ -108,7 +108,8 @@ if [ "$DISTRO_CHOICE" != "alpine" ]; then
       --run-command 'mkdir -p /etc/systemd/system/serial-getty@ttyS0.service.d' \
       --run-command 'echo -e "[Service]\nExecStart=\nExecStart=-/sbin/agetty -o \"-p -- \\\\u\" --autologin user-al --keep-baud 115200,38400,9600 %I \$TERM" > /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf' \
       --run-command 'mkdir -p /etc/systemd/network' \
-      --run-command 'echo -e "[Match]\nName=en*\n\n[Network]\nDHCP=ipv4" > /etc/systemd/network/10-dhcp.network' \
+      --run-command 'echo -e "[Match]\nName=en*\n\n[Link]\nActivationPolicy=up\n" > /etc/systemd/network/10-en.link' \
+      --run-command 'echo -e "[Match]\nName=en*\n\n[Network]\nDHCP=ipv4\nLinkLocalAddressing=no\n" > /etc/systemd/network/10-dhcp.network' \
       --run-command 'systemctl enable systemd-networkd systemd-resolved || true' \
       --run-command 'useradd --no-create-home --shell /bin/false node_exporter || true' \
       --upload "${NODE_EXPORTER_BIN}:/usr/local/bin/node_exporter" \
@@ -197,4 +198,4 @@ echo "    Sudo Priv    : YES (NOPASSWD)"
 echo "----------------------------------------------------------"
 echo "  MONITORING METRICS :"
 echo "    Node Exporter: http://$VM_IP:9100/metrics"
-echo "=========================================================="
+=========================================================="
