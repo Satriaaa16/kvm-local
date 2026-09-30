@@ -25,7 +25,7 @@ CACHE_DIR="/home/satria16alan/Dokumen/kvm/cache"
 
 mkdir -p "$VM_DISK_DIR" "$CACHE_DIR"
 
-# Mapping Distro
+# Mapping Distro (Presisi dengan requirement.sh)
 case "$DISTRO_CHOICE" in
   ubuntu)
     BASE_IMAGE_NAME="ubuntu-24.04-minimal-cloudimg-amd64.img"
@@ -89,9 +89,9 @@ fi
 echo "📦 1. Membuat disk turunan (overlay) dari Base Image..."
 qemu-img create -f qcow2 -F qcow2 -b "$BASE_IMAGE_PATH" "$ACTIVE_VM_DISK" 20G
 
-# 4. INJECT CREDENTIALS, FIX NETWORK NETPLAN, AUTOLOGIN & NODE EXPORTER
+# 4. INJECT CREDENTIALS, DIRECT SYSTEMD-NETWORKD DHCP, AUTOLOGIN & NODE EXPORTER
 if [ "$DISTRO_CHOICE" != "alpine" ]; then
-    echo "🔧 2. Injecting credentials, Netplan DHCP, Autologin & Node Exporter..."
+    echo "🔧 2. Injecting credentials, Systemd-Networkd DHCP, Autologin & Node Exporter..."
     virt-customize -a "$ACTIVE_VM_DISK" \
       --run-command 'useradd -m -s /bin/bash user-al || true' \
       --password user-al:password:useral \
@@ -104,9 +104,8 @@ if [ "$DISTRO_CHOICE" != "alpine" ]; then
       --run-command 'touch /etc/cloud/cloud-init.disabled' \
       --run-command 'mkdir -p /etc/systemd/system/serial-getty@ttyS0.service.d' \
       --run-command 'echo -e "[Service]\nExecStart=\nExecStart=-/sbin/agetty -o \"-p -- \\\\u\" --autologin user-al --keep-baud 115200,38400,9600 %I \$TERM" > /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf' \
-      --run-command 'mkdir -p /etc/netplan' \
-      --run-command 'echo -e "network:\n  version: 2\n  renderer: networkd\n  ethernets:\n    all-en-interfaces:\n      match:\n        name: \"en*\"\n      dhcp4: true\n      optional: false" > /etc/netplan/50-cloud-init.yaml' \
-      --run-command 'chmod 600 /etc/netplan/50-cloud-init.yaml' \
+      --run-command 'mkdir -p /etc/systemd/network' \
+      --run-command 'echo -e "[Match]\nName=en*\n\n[Network]\nDHCP=ipv4" > /etc/systemd/network/10-dhcp.network' \
       --run-command 'systemctl enable systemd-networkd systemd-resolved || true' \
       --run-command 'useradd --no-create-home --shell /bin/false node_exporter || true' \
       --upload "${NODE_EXPORTER_BIN}:/usr/local/bin/node_exporter" \
