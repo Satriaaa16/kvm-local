@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test-local:
+  prepare-kvm:
     runs-on: self-hosted
     steps:
       - name: test integrate
@@ -29,7 +29,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: install image for kvm
-        run: |
+        run: 
             chmod +x requirement.sh
             ./requirement.sh
 
@@ -48,4 +48,16 @@ jobs:
      # - name: Create kvm
      #   run: |
     #      ./create-kvm.sh
-          
+  setup-inside-kvm:
+    runs-on: self-hosted
+    steps:
+       - name: Checkout repo
+         uses: actions/checkout@v7
+        
+       - name: setup networking
+         run: |
+             chmod +x setup-network.sh
+             ./setup-nework.sh
+      
+    
+        
