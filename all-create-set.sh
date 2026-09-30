@@ -76,9 +76,9 @@ fi
 echo "📦 1. Membuat disk turunan (overlay) dari Base Image..."
 qemu-img create -f qcow2 -F qcow2 -b "$BASE_IMAGE_PATH" "$ACTIVE_VM_DISK" 20G
 
-# 4. INJECT CREDENTIALS & AUTOLOGIN SEBELUM VM BOOTING (KUNCI UTAMA FIX LOGIN)
+# 4. INJECT CREDENTIALS, NETPLAN, AUTOLOGIN & NODE EXPORTER
 if [ "$DISTRO_CHOICE" != "alpine" ]; then
-    echo "🔧 2. Injecting credentials, PAM fix & serial autologin..."
+    echo "🔧 2. Injecting credentials, Netplan DHCP, Autologin & Node Exporter..."
     virt-customize -a "$ACTIVE_VM_DISK" \
       --run-command 'useradd -m -s /bin/bash user-al || true' \
       --password user-al:password:useral \
@@ -91,7 +91,18 @@ if [ "$DISTRO_CHOICE" != "alpine" ]; then
       --run-command 'touch /etc/cloud/cloud-init.disabled' \
       --run-command 'mkdir -p /etc/systemd/system/serial-getty@ttyS0.service.d' \
       --run-command 'echo -e "[Service]\nExecStart=\nExecStart=-/sbin/agetty -o \"-p -- \\\\u\" --autologin user-al --keep-baud 115200,38400,9600 %I \$TERM" > /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf' \
-      --run-command 'systemctl enable systemd-networkd systemd-resolved || true'
+      --run-command 'mkdir -p /etc/netplan' \
+      --run-command 'echo -e "network:\n  version: 2\n  ethernets:\n    enp1s0:\n      dhcp4: true\n    ens3:\n      dhcp4: true" > /etc/netplan/50-cloud-init.yaml' \
+      --run-command 'chmod 600 /etc/netplan/50-cloud-init.yaml' \
+      --run-command 'systemctl enable systemd-networkd systemd-resolved || true' \
+      --run-command 'useradd --no-create-home --shell /bin/false node_exporter || true' \
+      --run-command 'curl -sSL https://github.com/prometheus/node_exporter/releases/download/v1.8.2/node_exporter-1.8.2.linux-amd64.tar.gz -o /tmp/node_exporter.tar.gz' \
+      --run-command 'tar -C /tmp -xzf /tmp/node_exporter.tar.gz' \
+      --run-command 'cp /tmp/node_exporter-1.8.2.linux-amd64/node_exporter /usr/local/bin/' \
+      --run-command 'chown node_exporter:node_exporter /usr/local/bin/node_exporter' \
+      --run-command 'rm -rf /tmp/node_exporter*' \
+      --run-command 'echo -e "[Unit]\nDescription=Node Exporter\nWants=network-online.target\nAfter=network-online.target\n\n[Service]\nUser=node_exporter\nGroup=node_exporter\nType=simple\nExecStart=/usr/local/bin/node_exporter\n\n[Install]\nWantedBy=multi-user.target" > /etc/systemd/system/node_exporter.service' \
+      --run-command 'systemctl enable node_exporter.service'
 fi
 
 # 5. SPIN-UP VM DENGAN VIRT-INSTALL
@@ -109,19 +120,40 @@ virt-install \
   --check path_in_use=off \
   --import
 
+# 6. MENGAMBIL DAN MENAMPILKAN IP ADDRESS AUTOMATIS
+echo "⏳ Menunggu VM mendapatkan IP Address dari KVM DHCP..."
+VM_IP=""
+RETRY_COUNT=0
+MAX_RETRIES=15
+
+while [ -z "$VM_IP" ] && [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    sleep 2
+    VM_IP=$(virsh domifaddr "$NAMEKVM" 2>/dev/null | grep -E -o '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n 1 || true)
+    RETRY_COUNT=$((RETRY_COUNT+1))
+done
+
+if [ -z "$VM_IP" ]; then
+    VM_IP="Sedang dialokasikan (Jalankan 'virsh domifaddr $NAMEKVM' sesaat lagi)"
+fi
+
 echo ""
 echo "=========================================================="
 echo "✅ VM '$NAMEKVM' BERHASIL DIBUAT & RUNNING!"
 echo "=========================================================="
 echo "  VM Name        : $NAMEKVM"
 echo "  Disk Active    : $ACTIVE_VM_DISK"
-echo "  Base Image Ref : $BASE_IMAGE_PATH"
+echo "  IP Address     : $VM_IP"
 echo "----------------------------------------------------------"
 echo "  CONSOLE ACCESS :"
-echo "    Autologin    : AKTIFF (Langsung tembus bash di virsh console!)"
+echo "    Virsh Command: virsh console $NAMEKVM"
+echo "    Autologin    : AKTIFF (Langsung tembus bash)"
 echo "----------------------------------------------------------"
-echo "  CREDENTIALS    :"
+echo "  SSH ACCESS     :"
+echo "    Command      : ssh user-al@$VM_IP"
 echo "    Username     : user-al"
 echo "    Password     : useral"
-echo "    Sudo         : YES (NOPASSWD)"
+echo "    Sudo Priv    : YES (NOPASSWD)"
+echo "----------------------------------------------------------"
+echo "  MONITORING METRICS :"
+echo "    Node Exporter: http://$VM_IP:9100/metrics"
 echo "=========================================================="
