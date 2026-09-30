@@ -7,6 +7,9 @@ set -e
 #   1. ./create-kvm.sh ubuntu             -> Nama VM: "vm-ubuntu"
 #   2. ./create-kvm.sh my-custom-vm debian -> Nama VM: "my-custom-vm"
 # ==========================================================
+# ==========================================================
+# INPUT PARAMETER FLEXIBLE & AUTO-NAMING
+# ==========================================================
 PARAM1="${1:-ubuntu}"
 PARAM2="$2"
 
@@ -25,7 +28,7 @@ CACHE_DIR="/home/satria16alan/Dokumen/kvm/cache"
 
 mkdir -p "$VM_DISK_DIR" "$CACHE_DIR"
 
-# Mapping Distro (Presisi dengan requirement.sh)
+# Mapping Distro
 case "$DISTRO_CHOICE" in
   ubuntu)
     BASE_IMAGE_NAME="ubuntu-24.04-minimal-cloudimg-amd64.img"
@@ -56,7 +59,7 @@ if [ ! -f "$BASE_IMAGE_PATH" ]; then
 fi
 
 # ----------------------------------------------------------
-# PRE-FETCH NODE EXPORTER BINARY ON HOST (Mencegah DNS Error)
+# PRE-FETCH NODE EXPORTER BINARY ON HOST
 # ----------------------------------------------------------
 NODE_EXPORTER_BIN="${CACHE_DIR}/node_exporter"
 if [ ! -f "$NODE_EXPORTER_BIN" ]; then
@@ -89,9 +92,9 @@ fi
 echo "📦 1. Membuat disk turunan (overlay) dari Base Image..."
 qemu-img create -f qcow2 -F qcow2 -b "$BASE_IMAGE_PATH" "$ACTIVE_VM_DISK" 20G
 
-# 4. INJECT CREDENTIALS, NETPLAN DHCP, AUTOLOGIN & NODE EXPORTER
+# 4. INJECT CREDENTIALS, DIRECT SYSTEMD-NETWORKD CONFIG, AUTOLOGIN & NODE EXPORTER
 if [ "$DISTRO_CHOICE" != "alpine" ]; then
-    echo "🔧 2. Injecting credentials, Netplan DHCP, Autologin & Node Exporter..."
+    echo "🔧 2. Injecting credentials, Direct Network Config, Autologin & Node Exporter..."
     virt-customize -a "$ACTIVE_VM_DISK" \
       --run-command 'useradd -m -s /bin/bash user-al || true' \
       --password user-al:password:useral \
@@ -105,9 +108,8 @@ if [ "$DISTRO_CHOICE" != "alpine" ]; then
       --run-command 'rm -rf /etc/netplan/* /etc/systemd/network/*' \
       --run-command 'mkdir -p /etc/systemd/system/serial-getty@ttyS0.service.d' \
       --run-command 'echo -e "[Service]\nExecStart=\nExecStart=-/sbin/agetty -o \"-p -- \\\\u\" --autologin user-al --keep-baud 115200,38400,9600 %I \$TERM" > /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf' \
-      --run-command 'mkdir -p /etc/netplan' \
-      --run-command 'echo -e "network:\n  version: 2\n  renderer: networkd\n  ethernets:\n    all-eth:\n      match:\n        name: \"e*\"\n      dhcp4: true" > /etc/netplan/01-netcfg.yaml' \
-      --run-command 'chmod 600 /etc/netplan/01-netcfg.yaml' \
+      --run-command 'mkdir -p /etc/systemd/network' \
+      --run-command 'echo -e "[Match]\nName=e*\n\n[Network]\nDHCP=ipv4\nLinkLocalAddressing=no" > /etc/systemd/network/10-dhcp.network' \
       --run-command 'systemctl enable systemd-networkd systemd-resolved || true' \
       --run-command 'useradd --no-create-home --shell /bin/false node_exporter || true' \
       --upload "${NODE_EXPORTER_BIN}:/usr/local/bin/node_exporter" \
@@ -116,7 +118,7 @@ if [ "$DISTRO_CHOICE" != "alpine" ]; then
       --run-command 'systemctl enable node_exporter.service'
 fi
 
-# 5. SPIN-UP VM DENGAN VIRT-INSTALL
+# 5. SPIN-UP VM DENGAN VIRT-INSTALL (DENGAN DRIVER NETWORK VIRTIO)
 echo "🖥️  3. Memulai proses virt-install..."
 virt-install \
   --virt-type=kvm \
@@ -127,11 +129,11 @@ virt-install \
   --graphics vnc,listen=0.0.0.0 \
   --noautoconsole \
   --os-variant "$OS_VARIANT" \
-  --network network=internet-net \
+  --network network=internet-net,model=virtio \
   --check path_in_use=off \
   --import
 
-# 6. MENGAMBIL DAN MENAMPILKAN IP ADDRESS AUTOMATIS (DUAL LOOKUP)
+# 6. MENGAMBIL DAN MENAMPILKAN IP ADDRESS AUTOMATIS
 echo "⏳ Menunggu VM mendapatkan IP Address dari KVM DHCP..."
 VM_IP=""
 RETRY_COUNT=0
@@ -139,10 +141,10 @@ MAX_RETRIES=20
 
 while [ -z "$VM_IP" ] && [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     sleep 2
-    # Method 1: virsh net-dhcp-leases (Paling reliable)
+    # Check 1: virsh net-dhcp-leases
     VM_IP=$(virsh net-dhcp-leases internet-net 2>/dev/null | grep -i "$NAMEKVM" | awk '{print $5}' | cut -d'/' -f1 | head -n 1 || true)
     
-    # Method 2: virsh domifaddr fallback
+    # Check 2: virsh domifaddr
     if [ -z "$VM_IP" ]; then
         VM_IP=$(virsh domifaddr "$NAMEKVM" 2>/dev/null | grep -E -o '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n 1 || true)
     fi
@@ -150,7 +152,7 @@ while [ -z "$VM_IP" ] && [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     RETRY_COUNT=$((RETRY_COUNT+1))
 done
 
-# 7. AUTOMATIC HEALTH CHECK (VERIFIKASI PIPELINE)
+# 7. AUTOMATIC HEALTH CHECK
 PING_STATUS="SKIPPED"
 EXPORTER_STATUS="SKIPPED"
 
