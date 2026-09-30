@@ -29,15 +29,24 @@ if ! id "prometheus" &>/dev/null; then
     sudo useradd --no-create-home --shell /bin/false prometheus || true
 fi
 
-# 2. DOWNLOAD & EXTRACT PROMETHEUS BINARY
+# 2. DOWNLOAD & EXTRACT PROMETHEUS BINARY (WITH CORRUPTION CHECK)
 PROM_TAR="${CACHE_DIR}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
 PROM_EXTRACT_DIR="${CACHE_DIR}/prometheus-${PROMETHEUS_VERSION}.linux-amd64"
 
 if [ ! -f "${INSTALL_DIR}/prometheus" ]; then
     echo "📥 Pre-downloading Prometheus Binary v${PROMETHEUS_VERSION}..."
-    if [ ! -f "$PROM_TAR" ]; then
-        curl -sSL "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz" -o "$PROM_TAR"
+    
+    # Validation check: Hapus archive jika korup/rusak di cache
+    if [ -f "$PROM_TAR" ] && ! gzip -t "$PROM_TAR" 2>/dev/null; then
+        echo "⚠️ File archive di cache korup/incomplete, menghapus..."
+        rm -f "$PROM_TAR"
     fi
+
+    # Download ulang jika file belum ada
+    if [ ! -f "$PROM_TAR" ]; then
+        curl -sSLf "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz" -o "$PROM_TAR"
+    fi
+
     tar -C "$CACHE_DIR" -xzf "$PROM_TAR"
     
     sudo cp "${PROM_EXTRACT_DIR}/prometheus" "${INSTALL_DIR}/"
