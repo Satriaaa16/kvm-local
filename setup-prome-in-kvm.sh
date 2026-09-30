@@ -1,14 +1,6 @@
 #!/bin/bash
 set -eo pipefail
 
-# ==========================================================
-# INPUT PARAMETER FLEXIBLE & AUTO-NAMING
-# Usage:
-#   1. ./setup-prome-in-kvm.sh                 -> Nama VM: "vm-ubuntu" (Default)
-#   2. ./setup-prome-in-kvm.sh debian          -> Nama VM: "vm-debian"
-#   3. ./setup-prome-in-kvm.sh nginx-devops    -> Nama VM: "nginx-devops"
-#   4. ./setup-prome-in-kvm.sh my-custom-vm debian -> Nama VM: "my-custom-vm"
-# ==========================================================
 PARAM1="${1:-ubuntu}"
 PARAM2="$2"
 
@@ -27,7 +19,6 @@ echo "=========================================================="
 echo "📊 [JOB 3] Installing Prometheus Server Inside VM: $NAMEKVM"
 echo "=========================================================="
 
-# Pastikan VM running
 if [ "$(virsh domstate "$NAMEKVM" 2>/dev/null || echo "stopped")" != "running" ]; then
     echo "⚠️  VM '$NAMEKVM' belum running, menyalakan..."
     virsh start "$NAMEKVM" || true
@@ -42,11 +33,13 @@ log_user 1
 
 spawn virsh console $NAMEKVM
 
-# 1. Pancing console agar memunculkan prompt
+# 1. Tunggu koneksi serial aktif lalu pancing ENTER
+expect "Escape character is"
+sleep 1
 send "\r\r"
-sleep 2
+sleep 1
 
-# 2. Handshake Login & Root Privileges
+# 2. Tangani Login TTY dengan Presisi
 expect {
     "login:" {
         send "user-al\r"
@@ -55,14 +48,19 @@ expect {
         expect "*$*"
         send "sudo -i\r"
     }
-    "user-al@ubuntu:~$" {
+    "*$*" {
         send "sudo -i\r"
     }
-    "root@ubuntu:~#" {
-        # Sudah di root
+    "*#*" {
+        # Sudah posisi root
     }
     timeout {
         send "\r"
+        expect "login:"
+        send "user-al\r"
+        expect "Password:"
+        send "useral\r"
+        expect "*$*"
         send "sudo -i\r"
     }
 }
@@ -73,7 +71,7 @@ expect {
     "*#*" { }
 }
 
-# 4. Setup User & Direktori Prometheus di VM
+# 4. Setup User & Direktori Prometheus di dalam VM
 send "useradd --no-create-home --shell /bin/false prometheus 2>/dev/null || true\r"
 expect "*#*"
 
@@ -108,7 +106,7 @@ expect "*#*"
 send "systemctl daemon-reload && systemctl enable --now prometheus\r"
 expect "*#*"
 
-# 8. Cleanup & Detach Console
+# 8. Cleanup & Exit Console
 send "rm -rf /tmp/prom-install\r"
 expect "*#*"
 
@@ -120,7 +118,7 @@ send "\x1d"
 expect eof
 EOF
 
-# Otomatis Deteksi IP VM dari KVM DHCP
+# Deteksi IP VM
 echo ""
 echo "⏳ Deteksi IP VM '$NAMEKVM'..."
 VM_IP=""
