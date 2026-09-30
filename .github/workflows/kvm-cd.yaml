@@ -69,6 +69,6 @@ jobs:
 
         - name: setup prometheus
           run: | 
-              chmod +x setup-prome.sh
+              chmod +x setup-prome-in-kvm.sh
               ./setup-prome-in-kvm.sh
               
