@@ -1,13 +1,21 @@
 #!/bin/bash
 set -eo pipefail
 
+# ==========================================================
+# INPUT PARAMETER FLEXIBLE & AUTO-NAMING
+# Usage:
+#   1. ./setup-prome-in-kvm.sh                 -> Nama VM: "vm-ubuntu" (Default)
+#   2. ./setup-prome-in-kvm.sh debian          -> Nama VM: "vm-debian"
+#   3. ./setup-prome-in-kvm.sh nginx-devops    -> Nama VM: "nginx-devops"
+#   4. ./setup-prome-in-kvm.sh my-custom-vm debian -> Nama VM: "my-custom-vm"
+# ==========================================================
 PARAM1="${1:-ubuntu}"
 PARAM2="$2"
 
 if [ -n "$PARAM2" ]; then
     NAMEKVM="$PARAM1"
     DISTRO_CHOICE="$PARAM2"
-elif [[ "$PARAM1" == vm-* ]] \vert{}\vert{} [[ "$PARAM1" == *devops* ]]; then
+elif [[ "$PARAM1" == vm-* ]] || [[ "$PARAM1" == *devops* ]]; then
     NAMEKVM="$PARAM1"
     DISTRO_CHOICE="ubuntu"
 else
@@ -20,9 +28,9 @@ echo "📊 [JOB 3] Installing Prometheus Server Inside VM: $NAMEKVM"
 echo "=========================================================="
 
 # Pastikan VM running
-if [ "$(virsh domstate "$NAMEKVM" 2>/dev/null)" != "running" ]; then
+if [ "$(virsh domstate "$NAMEKVM" 2>/dev/null || echo "stopped")" != "running" ]; then
     echo "⚠️  VM '$NAMEKVM' belum running, menyalakan..."
-    virsh start "$NAMEKVM"
+    virsh start "$NAMEKVM" || true
     sleep 8
 fi
 
@@ -106,23 +114,37 @@ expect "*#*"
 
 send "exit\r"
 expect "*$*"
-The `virsh console` attempt failed because the interactive login prompt timed out while waiting for a response, preventing the script from executing commands inside the virtual machine.
+send "exit\r"
 
-Here is how to fix the issue depending on your goal:
+send "\x1d"
+expect eof
+EOF
 
----
+# Otomatis Deteksi IP VM dari KVM DHCP
+echo ""
+echo "⏳ Deteksi IP VM '$NAMEKVM'..."
+VM_IP=""
+VM_IP=$(virsh domifaddr "$NAMEKVM" 2>/dev/null | grep -E -o '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n 1 || true)
 
-### Option 1: Use `virt-customize` or `virt-builder` (Recommended for Automation)
-If you are automating VM provisioning, interactive `virsh console` scripts using `expect` or `spawn` are notoriously fragile due to timing issues. Instead, inject files or run commands directly into the VM image offline using `virt-customize`:
+if [ -z "$VM_IP" ]; then
+    VM_MAC=$(virsh dumpxml "$NAMEKVM" 2>/dev/null | grep -i "mac address" | head -n 1 | cut -d"'" -f2 || true)
+    if [ -n "$VM_MAC" ]; then
+        VM_IP=$(virsh net-dhcp-leases internet-net 2>/dev/null | grep -i "$VM_MAC" | awk '{print $5}' | cut -d'/' -f1 | head -n 1 || true)
+    fi
+fi
 
-```bash
-# Shutdown the VM first
-virsh shutdown vm-ubuntu
-
-# Execute setup directly on the disk image
-virt-customize -a /path/to/vm-ubuntu.qcow2 \
-  --upload setup-prome-in-kvm.sh:/tmp/setup.sh \
-  --run-command 'chmod +x /tmp/setup.sh && /tmp/setup.sh'
-
-# Start the VM back up
-virsh start vm-ubuntu
+echo ""
+if [ -n "$VM_IP" ]; then
+    echo "=========================================================="
+    echo "🎉 [JOB 3 SUCCESS] PROMETHEUS BERHASIL DIPASANG DI DALAM VM!"
+    echo "=========================================================="
+    echo "  VM Name        : $NAMEKVM"
+    echo "  IP Address     : $VM_IP"
+    echo "  Prometheus Web : http://$VM_IP:9090"
+    echo "  Node Exporter  : http://$VM_IP:9100/metrics"
+    echo "=========================================================="
+else
+    echo "=========================================================="
+    echo "✅ Instalasi Selesai di VM '$NAMEKVM'."
+    echo "=========================================================="
+fi
