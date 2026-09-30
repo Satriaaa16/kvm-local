@@ -24,9 +24,9 @@ expect {
     "root@ubuntu:~#" { send "\r" }
 }
 
-# 2. Masukkan password sudo jika diminta
+# 2. Masukkan password sudo jika diminta (Siku [sudo] di-escape biar gak kebaca command TCL)
 expect {
-    "[sudo] password for user-al:" { send "useral\r" }
+    "\[sudo\] password for user-al:" { send "useral\r" }
     "root@ubuntu:~#" { send "\r" }
 }
 
@@ -77,4 +77,5 @@ if [ -n "$VM_IP" ]; then
     echo "=========================================================="
 else
     echo "❌ IP Belum tertangkap, silakan cek manual via console."
+    exit 1
 fi
