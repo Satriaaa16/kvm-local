@@ -56,7 +56,7 @@ if [ ! -f "$BASE_IMAGE_PATH" ]; then
 fi
 
 # ----------------------------------------------------------
-# PRE-FETCH NODE EXPORTER BINARY ON HOST
+# PRE-FETCH NODE EXPORTER BINARY ON HOST (Mencegah DNS Error)
 # ----------------------------------------------------------
 NODE_EXPORTER_BIN="${CACHE_DIR}/node_exporter"
 if [ ! -f "$NODE_EXPORTER_BIN" ]; then
@@ -89,7 +89,7 @@ fi
 echo "📦 1. Membuat disk turunan (overlay) dari Base Image..."
 qemu-img create -f qcow2 -F qcow2 -b "$BASE_IMAGE_PATH" "$ACTIVE_VM_DISK" 20G
 
-# 4. INJECT CREDENTIALS, FORCE NETWORK UP, AUTOLOGIN & NODE EXPORTER
+# 4. INJECT CREDENTIALS, PERMANENT DISABLE CLOUD-INIT NETWORKING, AUTOLOGIN & NODE EXPORTER
 if [ "$DISTRO_CHOICE" != "alpine" ]; then
     echo "🔧 2. Injecting credentials, Network Force-Up, Autologin & Node Exporter..."
     virt-customize -a "$ACTIVE_VM_DISK" \
@@ -101,15 +101,18 @@ if [ "$DISTRO_CHOICE" != "alpine" ]; then
       --run-command 'chmod 440 /etc/sudoers.d/user-al' \
       --run-command 'passwd -u user-al || true' \
       --run-command 'passwd -u root || true' \
+      --run-command 'mkdir -p /etc/cloud/cloud.cfg.d' \
+      --run-command 'echo "network: {config: disabled}" > /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg' \
       --run-command 'touch /etc/cloud/cloud-init.disabled' \
       --run-command 'rm -rf /etc/netplan/* /etc/systemd/network/*' \
       --run-command 'mkdir -p /etc/systemd/system/serial-getty@ttyS0.service.d' \
       --run-command 'echo -e "[Service]\nExecStart=\nExecStart=-/sbin/agetty -o \"-p -- \\\\u\" --autologin user-al --keep-baud 115200,38400,9600 %I \$TERM" > /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf' \
       --run-command 'mkdir -p /etc/netplan' \
-      --run-command 'echo -e "network:\n  version: 2\n  renderer: networkd\n  ethernets:\n    enp1s0:\n      dhcp4: true\n    ens3:\n      dhcp4: true" > /etc/netplan/01-netcfg.yaml' \
+      --run-command 'echo -e "network:\n  version: 2\n  renderer: networkd\n  ethernets:\n    enp1s0:\n      dhcp4: true\n      critical: true\n    ens3:\n      dhcp4: true\n      critical: true" > /etc/netplan/01-netcfg.yaml' \
       --run-command 'chmod 600 /etc/netplan/01-netcfg.yaml' \
-      --run-command 'echo -e "[Unit]\nDescription=Force Network Interface Up\nAfter=multi-user.target\n\n[Service]\nType=oneshot\nExecStart=/usr/bin/bash -c \"ip link set enp1s0 up 2>/dev/null || true; ip link set ens3 up 2>/dev/null || true; netplan apply 2>/dev/null || true\"\n\n[Install]\nWantedBy=multi-user.target" > /etc/systemd/system/force-net.service' \
-      --run-command 'systemctl enable force-net.service systemd-networkd systemd-resolved || true' \
+      --run-command 'echo -e "#!/bin/sh\nip link set enp1s0 up 2>/dev/null || true\nip link set ens3 up 2>/dev/null || true\nsystemctl restart systemd-networkd\nexit 0" > /etc/rc.local' \
+      --run-command 'chmod +x /etc/rc.local' \
+      --run-command 'systemctl enable systemd-networkd systemd-resolved || true' \
       --run-command 'useradd --no-create-home --shell /bin/false node_exporter || true' \
       --upload "${NODE_EXPORTER_BIN}:/usr/local/bin/node_exporter" \
       --run-command 'chmod 755 /usr/local/bin/node_exporter && chown node_exporter:node_exporter /usr/local/bin/node_exporter' \
@@ -132,26 +135,37 @@ virt-install \
   --check path_in_use=off \
   --import
 
-# 6. MENGAMBIL DAN MENAMPILKAN IP ADDRESS AUTOMATIS
+# 6. MENGAMBIL DAN MENAMPILKAN IP ADDRESS AUTOMATIS (BERDASARKAN MAC ADDRESS)
 echo "⏳ Menunggu VM mendapatkan IP Address dari KVM DHCP..."
 VM_IP=""
 RETRY_COUNT=0
 MAX_RETRIES=20
 
+# Ambil MAC Address VM langsung dari domain libvirt
+VM_MAC=$(virsh dumpxml "$NAMEKVM" 2>/dev/null | grep -i "mac address" | head -n 1 | cut -d"'" -f2 || true)
+
 while [ -z "$VM_IP" ] && [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     sleep 2
-    # Check 1: virsh net-dhcp-leases
-    VM_IP=$(virsh net-dhcp-leases internet-net 2>/dev/null | grep -i "$NAMEKVM" | awk '{print $5}' | cut -d'/' -f1 | head -n 1 || true)
     
-    # Check 2: virsh domifaddr
+    # Method 1: Filter DHCP Leases pakai MAC Address VM (Paling Akurat)
+    if [ -n "$VM_MAC" ]; then
+        VM_IP=$(virsh net-dhcp-leases internet-net 2>/dev/null | grep -i "$VM_MAC" | awk '{print $5}' | cut -d'/' -f1 | head -n 1 || true)
+    fi
+
+    # Method 2: Fallback virsh domifaddr
     if [ -z "$VM_IP" ]; then
         VM_IP=$(virsh domifaddr "$NAMEKVM" 2>/dev/null | grep -E -o '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n 1 || true)
+    fi
+
+    # Method 3: Fallback Name Search
+    if [ -z "$VM_IP" ]; then
+        VM_IP=$(virsh net-dhcp-leases internet-net 2>/dev/null | grep -i "$NAMEKVM" | awk '{print $5}' | cut -d'/' -f1 | head -n 1 || true)
     fi
     
     RETRY_COUNT=$((RETRY_COUNT+1))
 done
 
-# 7. AUTOMATIC HEALTH CHECK
+# 7. AUTOMATIC HEALTH CHECK (VERIFIKASI PIPELINE)
 PING_STATUS="SKIPPED"
 EXPORTER_STATUS="SKIPPED"
 
