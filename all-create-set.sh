@@ -89,9 +89,9 @@ fi
 echo "📦 1. Membuat disk turunan (overlay) dari Base Image..."
 qemu-img create -f qcow2 -F qcow2 -b "$BASE_IMAGE_PATH" "$ACTIVE_VM_DISK" 20G
 
-# 4. INJECT CREDENTIALS, DIRECT SYSTEMD-NETWORKD DHCP, AUTOLOGIN & NODE EXPORTER
+# 4. INJECT CREDENTIALS, NETPLAN DHCP, AUTOLOGIN & NODE EXPORTER
 if [ "$DISTRO_CHOICE" != "alpine" ]; then
-    echo "🔧 2. Injecting credentials, Systemd-Networkd DHCP, Autologin & Node Exporter..."
+    echo "🔧 2. Injecting credentials, Netplan DHCP, Autologin & Node Exporter..."
     virt-customize -a "$ACTIVE_VM_DISK" \
       --run-command 'useradd -m -s /bin/bash user-al || true' \
       --password user-al:password:useral \
@@ -102,10 +102,12 @@ if [ "$DISTRO_CHOICE" != "alpine" ]; then
       --run-command 'passwd -u user-al || true' \
       --run-command 'passwd -u root || true' \
       --run-command 'touch /etc/cloud/cloud-init.disabled' \
+      --run-command 'rm -rf /etc/netplan/* /etc/systemd/network/*' \
       --run-command 'mkdir -p /etc/systemd/system/serial-getty@ttyS0.service.d' \
       --run-command 'echo -e "[Service]\nExecStart=\nExecStart=-/sbin/agetty -o \"-p -- \\\\u\" --autologin user-al --keep-baud 115200,38400,9600 %I \$TERM" > /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf' \
-      --run-command 'mkdir -p /etc/systemd/network' \
-      --run-command 'echo -e "[Match]\nName=en*\n\n[Network]\nDHCP=ipv4" > /etc/systemd/network/10-dhcp.network' \
+      --run-command 'mkdir -p /etc/netplan' \
+      --run-command 'echo -e "network:\n  version: 2\n  renderer: networkd\n  ethernets:\n    all-eth:\n      match:\n        name: \"e*\"\n      dhcp4: true" > /etc/netplan/01-netcfg.yaml' \
+      --run-command 'chmod 600 /etc/netplan/01-netcfg.yaml' \
       --run-command 'systemctl enable systemd-networkd systemd-resolved || true' \
       --run-command 'useradd --no-create-home --shell /bin/false node_exporter || true' \
       --upload "${NODE_EXPORTER_BIN}:/usr/local/bin/node_exporter" \
@@ -133,23 +135,41 @@ virt-install \
 echo "⏳ Menunggu VM mendapatkan IP Address dari KVM DHCP..."
 VM_IP=""
 RETRY_COUNT=0
-MAX_RETRIES=15
+MAX_RETRIES=20
 
 while [ -z "$VM_IP" ] && [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     sleep 2
-    # 1. Coba lewat virsh domifaddr
-    VM_IP=$(virsh domifaddr "$NAMEKVM" 2>/dev/null | grep -E -o '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n 1 || true)
+    # Method 1: virsh net-dhcp-leases (Paling reliable)
+    VM_IP=$(virsh net-dhcp-leases internet-net 2>/dev/null | grep -i "$NAMEKVM" | awk '{print $5}' | cut -d'/' -f1 | head -n 1 || true)
     
-    # 2. Fallback lewat dhcp-leases jika domifaddr masih kosong
+    # Method 2: virsh domifaddr fallback
     if [ -z "$VM_IP" ]; then
-        VM_IP=$(virsh net-dhcp-leases internet-net 2>/dev/null | grep "$NAMEKVM" | awk '{print $5}' | cut -d'/' -f1 | head -n 1 || true)
+        VM_IP=$(virsh domifaddr "$NAMEKVM" 2>/dev/null | grep -E -o '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n 1 || true)
     fi
     
     RETRY_COUNT=$((RETRY_COUNT+1))
 done
 
-if [ -z "$VM_IP" ]; then
-    VM_IP="Sedang dialokasikan (Jalankan 'virsh domifaddr $NAMEKVM' sesaat lagi)"
+# 7. AUTOMATIC HEALTH CHECK (VERIFIKASI PIPELINE)
+PING_STATUS="SKIPPED"
+EXPORTER_STATUS="SKIPPED"
+
+if [ -n "$VM_IP" ] && [[ "$VM_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "🔍 Verifikasi Konektivitas ke IP $VM_IP..."
+    if ping -c 2 -W 2 "$VM_IP" &>/dev/null; then
+        PING_STATUS="OK (REACHABLE)"
+    else
+        PING_STATUS="FAILED"
+    fi
+
+    echo "🔍 Verifikasi Node Exporter Metrics Endpoint..."
+    if curl -s --connect-timeout 3 "http://$VM_IP:9100/metrics" | grep -q "node_exporter"; then
+        EXPORTER_STATUS="OK (ONLINE)"
+    else
+        EXPORTER_STATUS="FAILED / STARTING"
+    fi
+else
+    VM_IP="Sedang dialokasikan (Jalankan 'virsh net-dhcp-leases internet-net' sesaat lagi)"
 fi
 
 echo ""
@@ -159,6 +179,10 @@ echo "=========================================================="
 echo "  VM Name        : $NAMEKVM"
 echo "  Disk Active    : $ACTIVE_VM_DISK"
 echo "  IP Address     : $VM_IP"
+echo "----------------------------------------------------------"
+echo "  PIPELINE HEALTH CHECK :"
+echo "    Network Ping : $PING_STATUS"
+echo "    Node Exporter: $EXPORTER_STATUS"
 echo "----------------------------------------------------------"
 echo "  CONSOLE ACCESS :"
 echo "    Virsh Command: virsh console $NAMEKVM"
