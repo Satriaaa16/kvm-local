@@ -61,6 +61,8 @@ jobs:
              ./setup-network.sh
       
   setup-monitoring-kvm:
+      timeout-minutes: 4
+      continue-on-error: true
       runs-on: self-hosted
       needs: setup-inside-kvm
       steps:
