@@ -33,51 +33,52 @@ log_user 1
 
 spawn virsh console $NAMEKVM
 
-# 1. Tunggu koneksi serial aktif lalu pancing ENTER sampai prompt login muncul
+# 1. Tunggu koneksi serial aktif lalu pancing ENTER
 expect "Escape character is"
-sleep 2
+sleep 1
 send "\r\r"
+sleep 1
 
-# 2. Handshake Login TTY Berurutan & Presisi
+# 2. Tangani Login TTY
 expect {
     "login:" {
         send "user-al\r"
         expect "Password:"
         send "useral\r"
-        expect {
-            "*$*" {
-                send "sudo -i\r"
-                expect {
-                    "password for" { send "useral\r" }
-                    "*#*" { }
-                }
-            }
-            "*#*" { }
-        }
+        expect "*$*"
+        send "sudo -i\r"
     }
     "*$*" {
         send "sudo -i\r"
-        expect {
-            "password for" { send "useral\r" }
-            "*#*" { }
-        }
     }
     "*#*" {
         # Sudah posisi root
     }
+    timeout {
+        send "\r"
+        expect "login:"
+        send "user-al\r"
+        expect "Password:"
+        send "useral\r"
+        expect "*$*"
+        send "sudo -i\r"
+    }
 }
 
-# Pastikan sudah di prompt Root (#) sebelum lanjut
-expect "*#*"
+# 3. Tangani Password Sudo jika diminta
+expect {
+    "password for" { send "useral\r"; expect "*#*" }
+    "*#*" { }
+}
 
-# 3. Setup User & Direktori Prometheus di dalam VM
+# 4. Setup User & Direktori Prometheus di dalam VM
 send "useradd --no-create-home --shell /bin/false prometheus 2>/dev/null || true\r"
 expect "*#*"
 
 send "mkdir -p /etc/prometheus /var/lib/prometheus /tmp/prom-install\r"
 expect "*#*"
 
-# 4. Download & Extract Binary Prometheus v2.54.1
+# 5. Download & Extract Binary Prometheus v2.54.1
 send "curl -sSL https://github.com/prometheus/prometheus/releases/download/v2.54.1/prometheus-2.54.1.linux-amd64.tar.gz -o /tmp/prom-install/prometheus.tar.gz\r"
 expect "*#*"
 
@@ -91,21 +92,21 @@ expect "*#*"
 send "chown prometheus:prometheus /usr/local/bin/prometheus /usr/local/bin/promtool\r"
 expect "*#*"
 
-# 5. Inject Konfigurasi prometheus.yml (Aman tanpa quotes clash)
+# 6. Inject Konfigurasi prometheus.yml
 send "echo -e 'global:\n  scrape_interval: 15s\n\nscrape_configs:\n  - job_name: prometheus_internal\n    static_configs:\n      - targets: [localhost:9090]\n\n  - job_name: node_exporter\n    static_configs:\n      - targets: [localhost:9100]' > /etc/prometheus/prometheus.yml\r"
 expect "*#*"
 
 send "chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus\r"
 expect "*#*"
 
-# 6. Inject Systemd Unit Service Prometheus
+# 7. Inject Systemd Unit Service Prometheus
 send "echo -e '[Unit]\nDescription=Prometheus Server\nWants=network-online.target\nAfter=network-online.target\n\n[Service]\nUser=prometheus\nGroup=prometheus\nType=simple\nExecStart=/usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus --web.listen-address=0.0.0.0:9090\nRestart=always\n\n[Install]\nWantedBy=multi-user.target' > /etc/systemd/system/prometheus.service\r"
 expect "*#*"
 
 send "systemctl daemon-reload && systemctl enable --now prometheus\r"
 expect "*#*"
 
-# 7. Cleanup & Exit Console
+# 8. Cleanup & Exit Console
 send "rm -rf /tmp/prom-install\r"
 expect "*#*"
 
